@@ -70,7 +70,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<CreateTemplateViewModel>();
     }
 
-    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         Log.Error(e.Exception, "Unhandled exception");
         MessageBox.Show("Сталася неочікувана помилка. Деталі записано в журнал.", "PulseForge", MessageBoxButton.OK, MessageBoxImage.Error);
