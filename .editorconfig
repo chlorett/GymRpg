@@ -1,6 +1,8 @@
 root = true
 
 [*.cs]
+dotnet_diagnostic.SA1601.severity = none
+dotnet_diagnostic.SA1602.severity = none
 # Заголовок файлу в кожному .cs не потрібен
 dotnet_diagnostic.SA1633.severity = none
 # Попередження про вимкнений аналіз XML-коментарів

@@ -1,18 +1,27 @@
-namespace MyApp.Domain.Entities;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 
-public class WorkoutRecord
+namespace MyApp.Domain.Entities
 {
-    public int Id { get; set; }
+    public class WorkoutRecord
+    {
+        public long Id { get; set; }
 
-    public int UserId { get; set; }
+        public long SessionId { get; set; }
 
-    public int ExerciseId { get; set; }
+        public int ExerciseId { get; set; }
 
-    public DateTime CreatedAtUtc { get; set; }
+        public int XpEarned { get; set; } = 0;
 
-    public int XpEarned { get; set; }
+        public bool IsSuspicious { get; set; } = false;
 
-    public bool IsSuspicious { get; set; }
+        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
-    public List<WorkoutSet> Sets { get; set; } = new();
+        public WorkoutSession Session { get; set; } = null!;
+
+        public Exercise Exercise { get; set; } = null!;
+
+        public ICollection<WorkoutSet> WorkoutSets { get; set; } = new List<WorkoutSet>();
+    }
 }

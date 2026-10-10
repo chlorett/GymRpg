@@ -1,12 +1,19 @@
-namespace MyApp.Domain.Entities;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 
-public class UserProgress
+namespace MyApp.Domain.Entities
 {
-    public int Id { get; set; }
+    public class UserProgress
+    {
+        public long UserId { get; set; }
 
-    public int UserId { get; set; }
+        public long Xp { get; set; } = 0;
 
-    public int Xp { get; set; }
+        public int Level { get; set; } = 1;
 
-    public int Level { get; set; } = 1;
+        public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+        public User User { get; set; } = null!;
+    }
 }

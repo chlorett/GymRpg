@@ -1,38 +1,47 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MyApp.Application.Interfaces;
 using MyApp.Domain.Entities;
 using MyApp.Infrastructure.Data;
 
 namespace MyApp.Infrastructure.Repositories;
 
-public class UserProgressRepository : IUserProgressRepository
+public sealed class UserProgressRepository : IUserProgressRepository
 {
-    private readonly AppDbContext _context;
+    private readonly AppDbContext _db;
+    private readonly ILogger<UserProgressRepository> _logger;
 
-    public UserProgressRepository(AppDbContext context)
+    public UserProgressRepository(AppDbContext db, ILogger<UserProgressRepository> logger)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _db = db;
+        _logger = logger;
     }
 
     public async Task<UserProgress?> GetByUserIdAsync(int userId, CancellationToken ct = default)
     {
-        return await _context.UserProgresses
-            .FirstOrDefaultAsync(p => p.UserId == userId, ct);
+        _logger.LogDebug("Loading progress for user {UserId}", userId);
+
+        return await _db.Set<UserProgress>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(progress => progress.UserId == userId, ct);
     }
 
     public async Task SaveAsync(UserProgress progress, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(progress);
 
-        if (progress.Id == 0)
+        _logger.LogDebug("Saving progress for user {UserId}", progress.UserId);
+
+        var exists = await _db.Set<UserProgress>().AnyAsync(item => item.UserId == progress.UserId, ct);
+        if (exists)
         {
-            await _context.UserProgresses.AddAsync(progress, ct);
+            _db.Set<UserProgress>().Update(progress);
         }
         else
         {
-            _context.UserProgresses.Update(progress);
+            _db.Set<UserProgress>().Add(progress);
         }
 
-        await _context.SaveChangesAsync(ct);
+        await _db.SaveChangesAsync(ct);
     }
 }

@@ -1,4 +1,4 @@
-namespace MyApp.Domain.Enums;
+﻿namespace MyApp.Domain.Enums;
 
 public enum UserRole
 {

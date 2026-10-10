@@ -1,156 +1,213 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using MyApp.Application.Dtos;
 using MyApp.Application.Interfaces;
+using MyApp.Application.Rules;
 using MyApp.Domain.Entities;
+using MyApp.Domain.Enums;
 
 namespace MyApp.Application.Services;
 
-public class WorkoutTrackingService : IWorkoutTrackingService
+public sealed class WorkoutTrackingService : IWorkoutTrackingService
 {
-    private readonly IWorkoutRecordRepository _recordRepository;
-    private readonly IUserProgressRepository _progressRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly IExerciseRepository _exerciseRepository;
-    private readonly TimeProvider _timeProvider;
+    private readonly IUserRepository _users;
+    private readonly IExerciseRepository _exercises;
+    private readonly IWorkoutRecordRepository _records;
+    private readonly IUserProgressRepository _progress;
+    private readonly TimeProvider _time;
     private readonly ILogger<WorkoutTrackingService> _logger;
 
     public WorkoutTrackingService(
-        IWorkoutRecordRepository recordRepository,
-        IUserProgressRepository progressRepository,
-        IUserRepository userRepository,
-        IExerciseRepository exerciseRepository,
-        TimeProvider timeProvider,
-        ILogger<WorkoutTrackingService> logger)
+            IWorkoutRecordRepository records,
+            IUserProgressRepository progress,
+            IUserRepository users,
+            IExerciseRepository exercises,
+            TimeProvider time,
+            ILogger<WorkoutTrackingService> logger)
     {
-        _recordRepository = recordRepository ?? throw new ArgumentNullException(nameof(recordRepository));
-        _progressRepository = progressRepository ?? throw new ArgumentNullException(nameof(progressRepository));
-        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
-        _exerciseRepository = exerciseRepository ?? throw new ArgumentNullException(nameof(exerciseRepository));
-        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _users = users;
+        _exercises = exercises;
+        _records = records;
+        _progress = progress;
+        _time = time;
+        _logger = logger;
     }
 
     public async Task<OperationResult> TrackAsync(TrackWorkoutRequest request, CancellationToken ct = default)
     {
         if (request is null)
         {
-            _logger.LogWarning("Спроба зберегти тренування з порожнім запитом");
-            return OperationResult.Fail(ErrorCodes.ValidationFailed, null, "Запит не може бути порожнім.");
+            return Fail(ErrorCodes.ValidationFailed, nameof(request), "Запит не може бути порожнім.");
         }
 
+        var invalid = Validate(request);
+        if (invalid is not null)
+        {
+            return Reject(invalid, request);
+        }
+
+        if (await _users.GetByIdAsync(request.UserId, ct) is null)
+        {
+            var notFound = Fail(ErrorCodes.UserNotFound, nameof(TrackWorkoutRequest.UserId), "Користувача не знайдено.");
+            return Reject(notFound, request);
+        }
+
+        if (await _exercises.GetByIdAsync(request.ExerciseId, ct) is null)
+        {
+            var notFound = Fail(ErrorCodes.ExerciseNotFound, nameof(TrackWorkoutRequest.ExerciseId), "Вправу не знайдено.");
+            return Reject(notFound, request);
+        }
+
+        var record = CreateRecord(request);
+        await _records.AddAsync(record, ct);
+        await UpdateProgressAsync(request.UserId, record.XpEarned, ct);
+
+        _logger.LogInformation(
+            "Workout recorded: user {UserId}, exercise {ExerciseId}, sets {SetCount}, xp {Xp}",
+            request.UserId,
+            request.ExerciseId,
+            request.Sets.Count,
+            record.XpEarned);
+
+        if (record.IsSuspicious)
+        {
+            _logger.LogWarning(
+                "Suspicious workout record: user {UserId}, exercise {ExerciseId}",
+                request.UserId,
+                request.ExerciseId);
+        }
+
+        return OperationResult.Success();
+    }
+
+    private static OperationResult? Validate(TrackWorkoutRequest request)
+    {
         if (request.UserId <= 0)
         {
-            _logger.LogWarning("Некоректний UserId: {UserId}", request.UserId);
-            return OperationResult.Fail(ErrorCodes.ValidationFailed, nameof(request.UserId), "Некоректний ідентифікатор користувача.");
+            return Fail(ErrorCodes.ValidationFailed, nameof(TrackWorkoutRequest.UserId), "Некоректний користувач.");
         }
 
         if (request.ExerciseId <= 0)
         {
-            _logger.LogWarning("Не обрано вправу (ExerciseId: {ExerciseId}) для користувача {UserId}", request.ExerciseId, request.UserId);
-            return OperationResult.Fail(ErrorCodes.ValidationFailed, nameof(request.ExerciseId), "Оберіть вправу.");
+            return Fail(ErrorCodes.ValidationFailed, nameof(TrackWorkoutRequest.ExerciseId), "Оберіть вправу.");
         }
 
         if (request.Sets is null || request.Sets.Count == 0)
         {
-            _logger.LogWarning("Спроба зберегти тренування без підходів для користувача {UserId}", request.UserId);
-            return OperationResult.Fail(ErrorCodes.ValidationFailed, nameof(request.Sets), "Тренування повинно містити щонайменше один підхід.");
+            return Fail(ErrorCodes.ValidationFailed, nameof(TrackWorkoutRequest.Sets), "Додайте хоча б один підхід.");
         }
 
-        foreach (var set in request.Sets)
+        if (request.Sets.Count > WorkoutRules.MaxSets)
         {
-            if (set.Reps <= 0)
-            {
-                _logger.LogWarning("Некоректна кількість повторень ({Reps}) для користувача {UserId}", set.Reps, request.UserId);
-                return OperationResult.Fail(ErrorCodes.ValidationFailed, nameof(set.Reps), "Кількість повторень повинна бути більшою за нуль.");
-            }
+            return Fail(ErrorCodes.ValidationFailed, nameof(TrackWorkoutRequest.Sets), $"Не більше {WorkoutRules.MaxSets} підходів.");
+        }
 
-            if (set.Reps > 500)
+        for (var index = 0; index < request.Sets.Count; index++)
+        {
+            var error = ValidateSet(request.Sets[index], index + 1);
+            if (error is not null)
             {
-                _logger.LogWarning("Занадто велика кількість повторень ({Reps}) для користувача {UserId}", set.Reps, request.UserId);
-                return OperationResult.Fail(ErrorCodes.ValidationFailed, nameof(set.Reps), "Кількість повторень не може перевищувати 500.");
-            }
-
-            if (set.Weight < 0)
-            {
-                _logger.LogWarning("Від'ємна вага ({Weight}) для користувача {UserId}", set.Weight, request.UserId);
-                return OperationResult.Fail(ErrorCodes.ValidationFailed, nameof(set.Weight), "Вага не може бути від'ємною.");
-            }
-
-            if (set.Weight > 1000)
-            {
-                _logger.LogWarning("Занадто велика вага ({Weight}) для користувача {UserId}", set.Weight, request.UserId);
-                return OperationResult.Fail(ErrorCodes.ValidationFailed, nameof(set.Weight), "Вага не може перевищувати 1000 кг.");
+                return error;
             }
         }
 
-        var user = await _userRepository.GetByIdAsync(request.UserId, ct);
-        if (user is null)
+        return null;
+    }
+
+    private static OperationResult? ValidateSet(WorkoutSetDto set, int number)
+    {
+        if (set.Reps is < WorkoutRules.MinReps or > WorkoutRules.MaxReps)
         {
-            _logger.LogWarning("Користувача з Id {UserId} не знайдено при спробі зберегти тренування", request.UserId);
-            return OperationResult.Fail(ErrorCodes.UserNotFound, nameof(request.UserId), "Користувача не знайдено.");
+            return Fail(
+                ErrorCodes.ValidationFailed,
+                nameof(WorkoutSetDto.Reps),
+                $"Підхід №{number}: повторень має бути від {WorkoutRules.MinReps} до {WorkoutRules.MaxReps}.");
         }
 
-        var exercise = await _exerciseRepository.GetByIdAsync(request.ExerciseId, ct);
-        if (exercise is null)
+        if (set.Weight is < WorkoutRules.MinWeight or > WorkoutRules.MaxWeight)
         {
-            _logger.LogWarning("Вправу з Id {ExerciseId} не знайдено для користувача {UserId}", request.ExerciseId, request.UserId);
-            return OperationResult.Fail(ErrorCodes.ExerciseNotFound, nameof(request.ExerciseId), "Вправу не знайдено.");
+            return Fail(
+                ErrorCodes.ValidationFailed,
+                nameof(WorkoutSetDto.Weight),
+                $"Підхід №{number}: вага має бути від {WorkoutRules.MinWeight} до {WorkoutRules.MaxWeight} кг.");
         }
 
-        int xpEarned = XpCalculator.CalculateXp(request.Sets);
-        bool isSuspicious = XpCalculator.IsSuspicious(request.Sets);
+        return null;
+    }
 
-        if (isSuspicious)
+    private static OperationResult Fail(string errorCode, string field, string message)
+    {
+        return OperationResult.Fail(errorCode, field, message);
+    }
+
+    private static WorkoutSet ToWorkoutSet(WorkoutSetDto set, int index)
+    {
+        return new WorkoutSet
         {
-            _logger.LogWarning(
-                "Виявлено підозрілий запис тренування для користувача {UserId}, вправа {ExerciseName} (Id: {ExerciseId})",
-                request.UserId,
-                exercise.Name,
-                request.ExerciseId);
-        }
+            SetNumber = (short)(index + 1),
+            Reps = (short)set.Reps,
+            Weight = set.Weight,
+        };
+    }
 
-        var progress = await _progressRepository.GetByUserIdAsync(request.UserId, ct);
-        if (progress is null)
-        {
-            progress = new UserProgress
-            {
-                UserId = request.UserId,
-                Xp = xpEarned,
-                Level = XpCalculator.CalculateLevel(xpEarned),
-            };
-        }
-        else
-        {
-            progress.Xp += xpEarned;
-            progress.Level = XpCalculator.CalculateLevel(progress.Xp);
-        }
+    private WorkoutRecord CreateRecord(TrackWorkoutRequest request)
+    {
+        var now = _time.GetUtcNow();
 
-        await _progressRepository.SaveAsync(progress, ct);
-
-        var workoutRecord = new WorkoutRecord
+        var workout = new Workout
         {
             UserId = request.UserId,
-            ExerciseId = request.ExerciseId,
-            CreatedAtUtc = _timeProvider.GetUtcNow().UtcDateTime,
-            XpEarned = xpEarned,
-            IsSuspicious = isSuspicious,
-            Sets = request.Sets.Select(s => new WorkoutSet
-            {
-                Reps = s.Reps,
-                Weight = s.Weight,
-            }).ToList(),
+            Name = $"Тренування {now.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)}",
+            CreatedAt = now,
+            UpdatedAt = now,
         };
 
-        await _recordRepository.AddAsync(workoutRecord, ct);
+        var session = new WorkoutSession
+        {
+            Workout = workout,
+            ScheduledDate = now.UtcDateTime,
+            Status = SessionStatus.Completed,
+            CompletedAt = now,
+            CreatedAt = now,
+        };
 
-        _logger.LogInformation(
-            "Успішно збережено тренування для користувача {UserId}: вправа '{ExerciseName}', підходів: {SetsCount}, зароблено {XpEarned} XP, поточний рівень: {Level}",
+        return new WorkoutRecord
+        {
+            Session = session,
+            ExerciseId = request.ExerciseId,
+            CreatedAt = now,
+            XpEarned = XpCalculator.CalculateXp(request.Sets),
+            IsSuspicious = XpCalculator.IsSuspicious(request.Sets),
+            WorkoutSets = request.Sets.Select(ToWorkoutSet).ToList(),
+        };
+    }
+
+    private OperationResult Reject(OperationResult result, TrackWorkoutRequest request)
+    {
+        _logger.LogWarning(
+            "Workout rejected: user {UserId}, exercise {ExerciseId}, error {ErrorCode}, field {Field}",
             request.UserId,
-            exercise.Name,
-            request.Sets.Count,
-            xpEarned,
-            progress.Level);
+            request.ExerciseId,
+            result.ErrorCode,
+            result.Field);
 
-        return OperationResult.Success();
+        return result;
+    }
+
+    private async Task UpdateProgressAsync(int userId, int earnedXp, CancellationToken ct)
+    {
+        var progress = await _progress.GetByUserIdAsync(userId, ct) ?? new UserProgress { UserId = userId };
+        var previousLevel = progress.Level;
+
+        progress.Xp += earnedXp;
+        progress.Level = XpCalculator.CalculateLevel((int)progress.Xp);
+        progress.UpdatedAt = _time.GetUtcNow();
+
+        await _progress.SaveAsync(progress, ct);
+
+        if (progress.Level > previousLevel)
+        {
+            _logger.LogInformation("User {UserId} reached level {Level}", userId, progress.Level);
+        }
     }
 }

@@ -234,21 +234,21 @@ public class WorkoutTrackingServiceTests
         Assert.Equal(1, savedProgress.Level);
 
         Assert.NotNull(savedRecord);
-        Assert.Equal(1, savedRecord.UserId);
+        Assert.Equal(1, savedRecord.Session.Workout.UserId);
         Assert.Equal(10, savedRecord.ExerciseId);
         Assert.Equal(500, savedRecord.XpEarned);
         Assert.False(savedRecord.IsSuspicious);
-        Assert.Single(savedRecord.Sets);
-        Assert.Equal(10, savedRecord.Sets[0].Reps);
-        Assert.Equal(50m, savedRecord.Sets[0].Weight);
-        Assert.Equal(_timeProvider.GetUtcNow().UtcDateTime, savedRecord.CreatedAtUtc);
+        Assert.Single(savedRecord.WorkoutSets);
+        Assert.Equal(10, savedRecord.WorkoutSets.First().Reps);
+        Assert.Equal(50m, savedRecord.WorkoutSets.First().Weight);
+        Assert.Equal(_timeProvider.GetUtcNow(), savedRecord.CreatedAt);
     }
 
     [Fact]
     public async Task TrackAsync_WhenUserHasExistingProgress_IncrementsXpAndUpdatesLevel()
     {
         // Arrange
-        var existingProgress = new UserProgress { Id = 5, UserId = 1, Xp = 800, Level = 1 };
+        var existingProgress = new UserProgress { UserId = 1, Xp = 800, Level = 1 };
         var request = new TrackWorkoutRequest(1, 10, new[]
         {
             new WorkoutSetDto(10, 50m), // 500 XP -> Total: 1300 XP -> Level 2

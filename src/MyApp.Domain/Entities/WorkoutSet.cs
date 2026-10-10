@@ -1,12 +1,21 @@
-namespace MyApp.Domain.Entities;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 
-public class WorkoutSet
+namespace MyApp.Domain.Entities
 {
-    public int Id { get; set; }
+    public class WorkoutSet
+    {
+        public long Id { get; set; }
 
-    public int WorkoutRecordId { get; set; }
+        public long RecordId { get; set; }
 
-    public int Reps { get; set; }
+        public short SetNumber { get; set; }
 
-    public decimal Weight { get; set; }
+        public short Reps { get; set; }
+
+        public decimal Weight { get; set; } = 0;
+
+        public WorkoutRecord Record { get; set; } = null!;
+    }
 }

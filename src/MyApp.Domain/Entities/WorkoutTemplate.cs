@@ -1,12 +1,30 @@
-namespace MyApp.Domain.Entities;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+using MyApp.Domain.Enums;
 
-public class WorkoutTemplate
+namespace MyApp.Domain.Entities
 {
-    public int Id { get; set; }
+    public class WorkoutTemplate
+    {
+        public long Id { get; set; }
 
-    public int TrainerId { get; set; }
+        public long TrainerId { get; set; }
 
-    public string Name { get; set; } = string.Empty;
+        public UserRole TrainerRole { get; set; } = UserRole.Trainer;
 
-    public List<WorkoutTemplateExercise> Exercises { get; set; } = new();
+        public string Name { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+
+        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+        public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+        public User Trainer { get; set; } = null!;
+
+        public ICollection<WorkoutTemplateExercise> WorkoutTemplateExercises { get; set; } = new List<WorkoutTemplateExercise>();
+
+        public ICollection<Workout> Workouts { get; set; } = new List<Workout>();
+    }
 }
