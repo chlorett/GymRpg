@@ -4,5 +4,11 @@ using System.Text;
 
 namespace MyApp.Domain.Enums
 {
-    public enum MedalConditionType { WorkoutsCount, Level, TotalXp, StreakDays }
+    public enum MedalConditionType
+    {
+        WorkoutsCount,
+        Level,
+        TotalXp,
+        StreakDays
+    }
 }

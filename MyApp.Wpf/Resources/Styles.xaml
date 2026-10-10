@@ -1,0 +1,13 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Порожні стилі з ключами з CONTRACTS.md. Наповнює Софія, імена змінювати не можна. -->
+    <Style x:Key="FormTitle" TargetType="TextBlock" />
+    <Style x:Key="FieldLabel" TargetType="TextBlock" />
+    <Style x:Key="FieldInput" TargetType="Control" />
+    <Style x:Key="FieldError" TargetType="TextBlock" />
+    <Style x:Key="PrimaryButton" TargetType="Button" />
+    <Style x:Key="SecondaryButton" TargetType="Button" />
+    <Style x:Key="StatusText" TargetType="TextBlock" />
+
+</ResourceDictionary>

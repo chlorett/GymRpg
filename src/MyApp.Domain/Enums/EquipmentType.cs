@@ -4,5 +4,9 @@ using System.Text;
 
 namespace MyApp.Domain.Enums
 {
-    public enum EquipmentType { Gym, Calisthenics }
+    public enum EquipmentType
+    {
+        Gym,
+        Calisthenics
+    }
 }

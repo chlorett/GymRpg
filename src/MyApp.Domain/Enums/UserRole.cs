@@ -1,8 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace MyApp.Domain.Enums;
 
-namespace MyApp.Domain.Enums
+public enum UserRole
 {
-    public enum UserRole { User, Trainer, Admin }
+    User,
+    Trainer,
+    Admin,
 }

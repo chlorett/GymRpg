@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using MyApp.Domain.Enteties;
+using MyApp.Domain.Entities;
 using MyApp.Domain.Enums;
 
 namespace MyApp.Infrastructure.Data;
@@ -38,6 +38,7 @@ public partial class AppDbContext : DbContext
     public virtual DbSet<UserMedal> UserMedals { get; set; }
 
     public virtual DbSet<UserProgress> UserProgresses { get; set; }
+
     public virtual DbSet<Workout> Workouts { get; set; }
 
     public virtual DbSet<WorkoutExercise> WorkoutExercises { get; set; }
@@ -51,10 +52,6 @@ public partial class AppDbContext : DbContext
     public virtual DbSet<WorkoutTemplate> WorkoutTemplates { get; set; }
 
     public virtual DbSet<WorkoutTemplateExercise> WorkoutTemplateExercises { get; set; }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseNpgsql("Host=localhost;Database=GymRPG_Uni;Username=postgres;Password=XXXXXXXX");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -338,7 +335,6 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey<UserProgress>(d => d.UserId)
                 .HasConstraintName("user_progress_user_id_fkey");
         });
-        
 
         modelBuilder.Entity<Workout>(entity =>
         {
@@ -547,9 +543,5 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.TemplateId)
                 .HasConstraintName("workout_template_exercises_template_id_fkey");
         });
-
-        OnModelCreatingPartial(modelBuilder);
     }
-
-    partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
 }
