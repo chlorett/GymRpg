@@ -22,8 +22,6 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString));
 
         // --- Денис: DbContext, репозиторії, хешер паролів ---
-        services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IExerciseRepository, ExerciseRepository>();
 
         // --- Софія: репозиторій шаблонів ---
 

@@ -12,7 +12,7 @@ namespace MyApp.Wpf.ViewModels;
 public class TrackWorkoutViewModel : ObservableObject
 {
     private readonly IWorkoutTrackingService _trackingService;
-    private readonly IExerciseRepository _exerciseRepository;
+    private readonly IExerciseRepository? _exerciseRepository;
     private readonly CurrentUserSession _userSession;
     private readonly ILogger<TrackWorkoutViewModel> _logger;
 
@@ -23,14 +23,14 @@ public class TrackWorkoutViewModel : ObservableObject
 
     public TrackWorkoutViewModel(
         IWorkoutTrackingService trackingService,
-        IExerciseRepository exerciseRepository,
         CurrentUserSession userSession,
-        ILogger<TrackWorkoutViewModel> logger)
+        ILogger<TrackWorkoutViewModel> logger,
+        IExerciseRepository? exerciseRepository = null)
     {
         _trackingService = trackingService ?? throw new ArgumentNullException(nameof(trackingService));
-        _exerciseRepository = exerciseRepository ?? throw new ArgumentNullException(nameof(exerciseRepository));
         _userSession = userSession ?? throw new ArgumentNullException(nameof(userSession));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _exerciseRepository = exerciseRepository;
 
         SaveCommand = new AsyncRelayCommand(SaveWorkoutAsync, () => !IsBusy);
         AddSetCommand = new RelayCommand(AddSet);
@@ -94,10 +94,13 @@ public class TrackWorkoutViewModel : ObservableObject
         try
         {
             Exercises.Clear();
-            var exercises = await _exerciseRepository.GetAllAsync();
-            foreach (var exercise in exercises)
+            if (_exerciseRepository is not null)
             {
-                Exercises.Add(exercise);
+                var exercises = await _exerciseRepository.GetAllAsync();
+                foreach (var exercise in exercises)
+                {
+                    Exercises.Add(exercise);
+                }
             }
 
             if (Exercises.Count > 0 && SelectedExercise is null)
