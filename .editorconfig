@@ -5,9 +5,23 @@ root = true
 dotnet_diagnostic.SA1633.severity = none
 # Попередження про вимкнений аналіз XML-коментарів
 dotnet_diagnostic.SA0001.severity = none
-# Адреса Seq у конфігурації Serilog (навмисно localhost)
-dotnet_diagnostic.S1075.severity = none
 # Не вимагаємо XML-документацію до кожного елемента
 dotnet_diagnostic.SA1600.severity = none
-
+# Не вимагаємо префікс this. (рішення команди, стиль C# за замовчуванням)
+dotnet_diagnostic.SA1101.severity = none
+# Приватні поля з префіксом _ (стандартний стиль .NET)
+dotnet_diagnostic.SA1309.severity = none
+# using розміщуємо поза namespace (file-scoped namespaces)
+dotnet_diagnostic.SA1200.severity = none
+# Кінцева кома в багаторядкових ініціалізаторах не обов'язкова
+dotnet_diagnostic.SA1413.severity = none
+# Порожні класи-заглушки; прибрати після заміни на реальні сутності
 dotnet_diagnostic.S2094.severity = none
+# DTO-запити навмисно в одному файлі Requests.cs
+[**/Dtos/Requests.cs]
+dotnet_diagnostic.SA1402.severity = none
+dotnet_diagnostic.SA1649.severity = none
+
+# Автогенерований за шаблоном файл WPF, не редагуємо
+[**/AssemblyInfo.cs]
+generated_code = true

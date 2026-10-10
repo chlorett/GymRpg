@@ -8,15 +8,9 @@ public static class DependencyInjection
     {
         services.AddSingleton(TimeProvider.System);
 
-        // --- Денис ---
-        // services.AddTransient<IAuthService, AuthService>();
-
-        // --- Назар ---
-        // services.AddTransient<IWorkoutTrackingService, WorkoutTrackingService>();
-
-        // --- Софія ---
-        // services.AddTransient<IWorkoutTemplateService, WorkoutTemplateService>();
-
+        // --- Денис: реєстрація репозиторіїв і хешера ---
+        // --- Софія: шаблони тренувань ---
+        // --- Назар: відстеження тренувань ---
         return services;
     }
 }

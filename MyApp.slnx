@@ -3,7 +3,6 @@
     <Project Path="src/MyApp.Application/MyApp.Application.csproj" />
     <Project Path="src/MyApp.Domain/MyApp.Domain.csproj" />
     <Project Path="src/MyApp.Infrastructure/MyApp.Infrastructure.csproj" />
-    <Project Path="src/MyApp.Presentation/MyApp.Presentation.csproj" />
   </Folder>
   <Project Path="MyApp.Tests/MyApp.Tests.csproj" Id="27955728-9968-4f17-baba-07cd6faf4146" />
   <Project Path="MyApp.Wpf/MyApp.Wpf.csproj" Id="69d71c53-5da2-4c1c-883f-c59d309f7d59" />
