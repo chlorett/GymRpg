@@ -1,0 +1,13 @@
+root = true
+
+[*.cs]
+# Заголовок файлу в кожному .cs не потрібен
+dotnet_diagnostic.SA1633.severity = none
+# Попередження про вимкнений аналіз XML-коментарів
+dotnet_diagnostic.SA0001.severity = none
+# Адреса Seq у конфігурації Serilog (навмисно localhost)
+dotnet_diagnostic.S1075.severity = none
+# Не вимагаємо XML-документацію до кожного елемента
+dotnet_diagnostic.SA1600.severity = none
+
+dotnet_diagnostic.S2094.severity = none
