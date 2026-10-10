@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +34,20 @@ public partial class App : System.Windows.Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
 
         await _host.StartAsync();
+
+        using (var scope = _host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MyApp.Infrastructure.Data.AppDbContext>();
+            try
+            {
+                await db.Database.EnsureCreatedAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "База даних PostgreSQL наразі недоступна. Перевірте з'єднання.");
+            }
+        }
+
         _host.Services.GetRequiredService<MainWindow>().Show();
     }
 

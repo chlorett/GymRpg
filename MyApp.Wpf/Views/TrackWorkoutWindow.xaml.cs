@@ -9,5 +9,6 @@ public partial class TrackWorkoutWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+        Loaded += async (_, _) => await viewModel.LoadExercisesAsync();
     }
 }

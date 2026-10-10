@@ -11,6 +11,7 @@ public static class DependencyInjection
         // --- Денис: реєстрація репозиторіїв і хешера ---
         // --- Софія: шаблони тренувань ---
         // --- Назар: відстеження тренувань ---
+        services.AddTransient<Interfaces.IWorkoutTrackingService, Services.WorkoutTrackingService>();
         return services;
     }
 }
