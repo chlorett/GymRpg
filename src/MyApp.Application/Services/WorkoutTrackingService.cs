@@ -9,25 +9,25 @@ public class WorkoutTrackingService : IWorkoutTrackingService
 {
     private readonly IWorkoutRecordRepository _recordRepository;
     private readonly IUserProgressRepository _progressRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly IExerciseRepository _exerciseRepository;
+    private readonly IUserRepository? _userRepository;
+    private readonly IExerciseRepository? _exerciseRepository;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<WorkoutTrackingService> _logger;
 
     public WorkoutTrackingService(
         IWorkoutRecordRepository recordRepository,
         IUserProgressRepository progressRepository,
-        IUserRepository userRepository,
-        IExerciseRepository exerciseRepository,
         TimeProvider timeProvider,
-        ILogger<WorkoutTrackingService> logger)
+        ILogger<WorkoutTrackingService> logger,
+        IUserRepository? userRepository = null,
+        IExerciseRepository? exerciseRepository = null)
     {
         _recordRepository = recordRepository ?? throw new ArgumentNullException(nameof(recordRepository));
         _progressRepository = progressRepository ?? throw new ArgumentNullException(nameof(progressRepository));
-        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
-        _exerciseRepository = exerciseRepository ?? throw new ArgumentNullException(nameof(exerciseRepository));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _userRepository = userRepository;
+        _exerciseRepository = exerciseRepository;
     }
 
     public async Task<OperationResult> TrackAsync(TrackWorkoutRequest request, CancellationToken ct = default)
@@ -83,18 +83,27 @@ public class WorkoutTrackingService : IWorkoutTrackingService
             }
         }
 
-        var user = await _userRepository.GetByIdAsync(request.UserId, ct);
-        if (user is null)
+        if (_userRepository is not null)
         {
-            _logger.LogWarning("Користувача з Id {UserId} не знайдено при спробі зберегти тренування", request.UserId);
-            return OperationResult.Fail(ErrorCodes.UserNotFound, nameof(request.UserId), "Користувача не знайдено.");
+            var user = await _userRepository.GetByIdAsync(request.UserId, ct);
+            if (user is null)
+            {
+                _logger.LogWarning("Користувача з Id {UserId} не знайдено при спробі зберегти тренування", request.UserId);
+                return OperationResult.Fail(ErrorCodes.UserNotFound, nameof(request.UserId), "Користувача не знайдено.");
+            }
         }
 
-        var exercise = await _exerciseRepository.GetByIdAsync(request.ExerciseId, ct);
-        if (exercise is null)
+        string exerciseName = $"Вправа #{request.ExerciseId}";
+        if (_exerciseRepository is not null)
         {
-            _logger.LogWarning("Вправу з Id {ExerciseId} не знайдено для користувача {UserId}", request.ExerciseId, request.UserId);
-            return OperationResult.Fail(ErrorCodes.ExerciseNotFound, nameof(request.ExerciseId), "Вправу не знайдено.");
+            var exercise = await _exerciseRepository.GetByIdAsync(request.ExerciseId, ct);
+            if (exercise is null)
+            {
+                _logger.LogWarning("Вправу з Id {ExerciseId} не знайдено для користувача {UserId}", request.ExerciseId, request.UserId);
+                return OperationResult.Fail(ErrorCodes.ExerciseNotFound, nameof(request.ExerciseId), "Вправу не знайдено.");
+            }
+
+            exerciseName = exercise.Name;
         }
 
         int xpEarned = XpCalculator.CalculateXp(request.Sets);
@@ -105,7 +114,7 @@ public class WorkoutTrackingService : IWorkoutTrackingService
             _logger.LogWarning(
                 "Виявлено підозрілий запис тренування для користувача {UserId}, вправа {ExerciseName} (Id: {ExerciseId})",
                 request.UserId,
-                exercise.Name,
+                exerciseName,
                 request.ExerciseId);
         }
 
@@ -146,7 +155,7 @@ public class WorkoutTrackingService : IWorkoutTrackingService
         _logger.LogInformation(
             "Успішно збережено тренування для користувача {UserId}: вправа '{ExerciseName}', підходів: {SetsCount}, зароблено {XpEarned} XP, поточний рівень: {Level}",
             request.UserId,
-            exercise.Name,
+            exerciseName,
             request.Sets.Count,
             xpEarned,
             progress.Level);

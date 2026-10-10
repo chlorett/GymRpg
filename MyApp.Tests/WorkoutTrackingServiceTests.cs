@@ -25,10 +25,10 @@ public class WorkoutTrackingServiceTests
         _service = new WorkoutTrackingService(
             _recordRepositoryMock.Object,
             _progressRepositoryMock.Object,
-            _userRepositoryMock.Object,
-            _exerciseRepositoryMock.Object,
             _timeProvider,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            _userRepositoryMock.Object,
+            _exerciseRepositoryMock.Object);
     }
 
     [Fact]

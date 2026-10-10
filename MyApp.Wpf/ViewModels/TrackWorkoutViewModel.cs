@@ -103,10 +103,16 @@ public class TrackWorkoutViewModel : ObservableObject
                 }
             }
 
-            if (Exercises.Count > 0 && SelectedExercise is null)
+            // Якщо репозиторій вправ ще не реалізований Денисом, використовуємо базовий список для перегляду форми
+            if (Exercises.Count == 0)
             {
-                SelectedExercise = Exercises[0];
+                Exercises.Add(new Exercise { Id = 1, Name = "Жим лежачи" });
+                Exercises.Add(new Exercise { Id = 2, Name = "Присідання зі штангою" });
+                Exercises.Add(new Exercise { Id = 3, Name = "Станова тяга" });
+                Exercises.Add(new Exercise { Id = 4, Name = "Підтягування" });
             }
+
+            SelectedExercise ??= Exercises[0];
         }
         catch (Exception ex)
         {
