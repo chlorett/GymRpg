@@ -3,9 +3,12 @@ using System.Windows.Threading;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Serilog;
 using MyApp.Application;
 using MyApp.Infrastructure;
+using MyApp.Wpf.Services;
+using MyApp.Wpf.ViewModels;
+using MyApp.Wpf.Views;
+using Serilog;
 
 namespace MyApp.Wpf;
 
@@ -25,7 +28,7 @@ public partial class App : System.Windows.Application
                 .WriteTo.Console()
                 .WriteTo.Seq(context.Configuration["Seq:Url"]
                     ?? throw new InvalidOperationException("Seq:Url не задано.")))
-            .ConfigureServices((context, services) => ConfigureServices(services))
+            .ConfigureServices((context, services) => ConfigureServices(context.Configuration, services))
             .Build();
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;
@@ -46,9 +49,25 @@ public partial class App : System.Windows.Application
         base.OnExit(e);
     }
 
-    private static void ConfigureServices(IServiceCollection services)
+    private static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
+        services.AddApplication();
+        services.AddInfrastructure(configuration);
+
+        services.AddSingleton<CurrentUserSession>();
         services.AddTransient<MainWindow>();
+
+        // --- Денис ---
+        services.AddTransient<RegisterWindow>();
+        services.AddTransient<RegisterViewModel>();
+
+        // --- Назар ---
+        services.AddTransient<TrackWorkoutWindow>();
+        services.AddTransient<TrackWorkoutViewModel>();
+
+        // --- Софія ---
+        services.AddTransient<CreateTemplateWindow>();
+        services.AddTransient<CreateTemplateViewModel>();
     }
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

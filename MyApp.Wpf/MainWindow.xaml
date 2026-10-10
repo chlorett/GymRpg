@@ -1,12 +1,15 @@
-﻿<Window x:Class="MyApp.Wpf.MainWindow"
+<Window x:Class="MyApp.Wpf.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:MyApp.Wpf"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
-
-    </Grid>
+        Title="PulseForge" Height="320" Width="420"
+        WindowStartupLocation="CenterScreen">
+    <StackPanel Margin="24" VerticalAlignment="Center">
+        <TextBlock Text="PulseForge" Style="{StaticResource FormTitle}" />
+        <Button Content="Реєстрація" Margin="0,12,0,0" Padding="8"
+                Style="{StaticResource PrimaryButton}" Click="OnRegisterClick" />
+        <Button Content="Нове тренування" Margin="0,12,0,0" Padding="8"
+                Style="{StaticResource PrimaryButton}" Click="OnTrackWorkoutClick" />
+        <Button Content="Шаблон тренування" Margin="0,12,0,0" Padding="8"
+                Style="{StaticResource PrimaryButton}" Click="OnCreateTemplateClick" />
+    </StackPanel>
 </Window>

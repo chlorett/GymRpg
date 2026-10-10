@@ -1,24 +1,25 @@
-﻿using System.Text;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using Microsoft.Extensions.DependencyInjection;
+using MyApp.Wpf.Views;
 
-namespace MyApp.Wpf
+namespace MyApp.Wpf;
+
+public partial class MainWindow : Window
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
-    public partial class MainWindow : Window
+    private readonly IServiceProvider _services;
+
+    public MainWindow(IServiceProvider services)
     {
-        public MainWindow()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
+        _services = services;
     }
+
+    private void OnRegisterClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<RegisterWindow>().Show();
+
+    private void OnTrackWorkoutClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<TrackWorkoutWindow>().Show();
+
+    private void OnCreateTemplateClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<CreateTemplateWindow>().Show();
 }
