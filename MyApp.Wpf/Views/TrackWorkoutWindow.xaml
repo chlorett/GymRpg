@@ -1,9 +1,143 @@
 <Window x:Class="MyApp.Wpf.Views.TrackWorkoutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Нове тренування" Height="520" Width="560"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="clr-namespace:MyApp.Wpf.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=viewModels:TrackWorkoutViewModel}"
+        Title="Збереження результатів тренування - PulseForge"
+        Height="580" Width="640"
+        MinHeight="450" MinWidth="500"
         WindowStartupLocation="CenterScreen">
     <Grid Margin="24">
-        <TextBlock Text="Нове тренування" Style="{StaticResource FormTitle}" />
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <TextBlock Grid.Row="0"
+                   Text="Збереження тренування"
+                   FontSize="22"
+                   FontWeight="Bold"
+                   Margin="0,0,0,16"
+                   Style="{StaticResource FormTitle}" />
+
+        <!-- Вибір вправи -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,16">
+            <TextBlock Text="Оберіть вправу:"
+                       FontWeight="SemiBold"
+                       Margin="0,0,0,6"
+                       Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding Exercises}"
+                      SelectedItem="{Binding SelectedExercise}"
+                      DisplayMemberPath="Name"
+                      Padding="8,6"
+                      FontSize="14" />
+        </StackPanel>
+
+        <!-- Таблиця підходів -->
+        <GroupBox Grid.Row="2" Header="Підходи (Sets)" Margin="0,0,0,12" Padding="8">
+            <DataGrid ItemsSource="{Binding Sets}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      RowHeaderWidth="0"
+                      FontSize="14"
+                      BorderThickness="1"
+                      BorderBrush="#DDDDDD">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="#"
+                                        Binding="{Binding SetNumber}"
+                                        IsReadOnly="True"
+                                        Width="50" />
+                    <DataGridTextColumn Header="Вага (кг)"
+                                        Binding="{Binding Weight, UpdateSourceTrigger=PropertyChanged}"
+                                        Width="*" />
+                    <DataGridTextColumn Header="Повторення"
+                                        Binding="{Binding Reps, UpdateSourceTrigger=PropertyChanged}"
+                                        Width="*" />
+                    <DataGridTemplateColumn Header="Дії" Width="90">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Видалити"
+                                        Command="{Binding DataContext.RemoveSetCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}"
+                                        Margin="4,2"
+                                        Padding="6,2"
+                                        Background="#FFEEEE"
+                                        Foreground="#AA0000" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <!-- Кнопка додавання підходу -->
+        <Button Grid.Row="3"
+                Content="+ Додати підхід"
+                Command="{Binding AddSetCommand}"
+                HorizontalAlignment="Left"
+                Padding="12,6"
+                Margin="0,0,0,16"
+                Style="{StaticResource SecondaryButton}" />
+
+        <!-- Повідомлення про статус / помилки -->
+        <StackPanel Grid.Row="4" Margin="0,0,0,12">
+            <TextBlock Text="{Binding ErrorMessage}"
+                       Foreground="Crimson"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,4">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource FieldError}">
+                        <Style.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                            <Trigger Property="Text" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="ForestGreen"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,4">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource StatusText}">
+                        <Style.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                            <Trigger Property="Text" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Кнопка збереження -->
+        <Button Grid.Row="5"
+                Content="Зберегти тренування"
+                Command="{Binding SaveCommand}"
+                Padding="16,10"
+                FontSize="15"
+                FontWeight="Bold"
+                Style="{StaticResource PrimaryButton}" />
     </Grid>
 </Window>
