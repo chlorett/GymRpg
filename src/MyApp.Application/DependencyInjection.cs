@@ -9,6 +9,8 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
 
         // --- Денис: реєстрація репозиторіїв і хешера ---
+        services.AddTransient<Interfaces.IAuthService, Services.AuthService>();
+
         // --- Софія: шаблони тренувань ---
         // --- Назар: відстеження тренувань ---
         services.AddTransient<Interfaces.IWorkoutTrackingService, Services.WorkoutTrackingService>();
