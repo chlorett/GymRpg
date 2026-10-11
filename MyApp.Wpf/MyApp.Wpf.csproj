@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Fonts\ScienceGothicRegular.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
       <PrivateAssets>all</PrivateAssets>
@@ -23,6 +27,10 @@
   <ItemGroup>
     <ProjectReference Include="..\src\MyApp.Application\MyApp.Application.csproj" />
     <ProjectReference Include="..\src\MyApp.Infrastructure\MyApp.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Fonts\ScienceGothicRegular.ttf" />
   </ItemGroup>
 
   <ItemGroup>

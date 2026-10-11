@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
 
         // --- Софія: репозиторій шаблонів ---
+        services.AddTransient<IWorkoutTemplateRepository, WorkoutTemplateRepository>();
 
         // --- Назар: репозиторії тренувань і прогресу ---
         services.AddTransient<IWorkoutRecordRepository, WorkoutRecordRepository>();

@@ -1,9 +1,85 @@
 <Window x:Class="MyApp.Wpf.Views.CreateTemplateWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Новий шаблон тренування" Height="520" Width="560"
+        Style="{StaticResource AppWindow}"
+        Title="Новий шаблон тренування" Height="700" Width="560"
+        MinHeight="580" MinWidth="480"
         WindowStartupLocation="CenterScreen">
     <Grid Margin="24">
-        <TextBlock Text="Новий шаблон тренування" Style="{StaticResource FormTitle}" />
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="Новий шаблон тренування" Style="{StaticResource FormTitle}" />
+
+            <TextBlock Text="Назва шаблону" Style="{StaticResource FieldLabel}" />
+            <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource FieldInput}" />
+
+            <TextBlock Text="Вправа з каталогу" Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding Exercises}"
+                      SelectedItem="{Binding SelectedExercise}"
+                      DisplayMemberPath="Name"
+                      Style="{StaticResource FieldInput}" />
+
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Цільові підходи" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding TargetSets, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource FieldInput}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Цільові повторення" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding TargetReps, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource FieldInput}" />
+                </StackPanel>
+            </Grid>
+
+            <Button Content="Додати вправу до шаблону" Margin="0,16,0,0"
+                    Command="{Binding AddExerciseCommand}"
+                    Style="{StaticResource SecondaryButton}" />
+
+            <TextBlock Text="Вправи шаблону" Style="{StaticResource FieldLabel}" />
+        </StackPanel>
+
+        <ListBox x:Name="TemplateExercisesList" Grid.Row="1"
+                 ItemsSource="{Binding TemplateExercises}"
+                 Background="{StaticResource SurfaceBrush}"
+                 BorderBrush="{StaticResource BorderBrushLight}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Summary}" Padding="4" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="2">
+            <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource FieldError}" />
+            <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource StatusText}" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,16,0,0">
+            <Button Content="Зберегти" MinWidth="140"
+                    Command="{Binding SaveCommand}"
+                    Style="{StaticResource PrimaryButton}" />
+            <Button Content="Прибрати вибрану" Margin="12,0,0,0"
+                    Command="{Binding RemoveExerciseCommand}"
+                    CommandParameter="{Binding SelectedItem, ElementName=TemplateExercisesList}"
+                    Style="{StaticResource SecondaryButton}" />
+            <Button Content="Закрити" Margin="12,0,0,0"
+                    Click="OnCloseClick"
+                    Style="{StaticResource SecondaryButton}" />
+        </StackPanel>
     </Grid>
 </Window>
