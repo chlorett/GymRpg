@@ -1,6 +1,7 @@
 <Window x:Class="MyApp.Wpf.Views.RegisterWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource AppWindow}"
         Title="Реєстрація" Height="520" Width="560"
         WindowStartupLocation="CenterScreen">
     <Grid Margin="24">

@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using MyApp.Application.Interfaces;
+using MyApp.Application.Services;
 
 namespace MyApp.Application;
 
@@ -10,6 +12,8 @@ public static class DependencyInjection
 
         // --- Денис: реєстрація репозиторіїв і хешера ---
         // --- Софія: шаблони тренувань ---
+        services.AddScoped<IWorkoutTemplateService, WorkoutTemplateService>();
+
         // --- Назар: відстеження тренувань ---
         services.AddTransient<Interfaces.IWorkoutTrackingService, Services.WorkoutTrackingService>();
         return services;

@@ -6,6 +6,7 @@
         xmlns:viewModels="clr-namespace:MyApp.Wpf.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=viewModels:TrackWorkoutViewModel}"
+        Style="{StaticResource AppWindow}"
         Title="Збереження результатів тренування - PulseForge"
         Height="580" Width="640"
         MinHeight="450" MinWidth="500"

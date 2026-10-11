@@ -24,6 +24,7 @@ public static class DependencyInjection
         // --- Денис: DbContext, репозиторії, хешер паролів ---
 
         // --- Софія: репозиторій шаблонів ---
+        services.AddScoped<IWorkoutTemplateRepository, WorkoutTemplateRepository>();
 
         // --- Назар: репозиторії тренувань і прогресу ---
         services.AddScoped<IWorkoutRecordRepository, WorkoutRecordRepository>();
