@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MyApp.Application.Interfaces;
 using MyApp.Infrastructure.Data;
 using MyApp.Infrastructure.Repositories;
+using MyApp.Infrastructure.Security;
 
 namespace MyApp.Infrastructure;
 
@@ -22,6 +23,8 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString));
 
         // --- Денис: DbContext, репозиторії, хешер паролів ---
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
 
         // --- Софія: репозиторій шаблонів ---
 
