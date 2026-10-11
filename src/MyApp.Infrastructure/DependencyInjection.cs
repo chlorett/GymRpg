@@ -11,26 +11,29 @@ namespace MyApp.Infrastructure;
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
-        this IServiceCollection services,
-        IConfiguration configuration)
+            this IServiceCollection services,
+            IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
         string connectionString = configuration.GetConnectionString("Default")
-            ?? "Host=localhost;Port=5432;Database=pulseforge;Username=postgres;Password=postgres";
+            ?? throw new InvalidOperationException("ConnectionStrings:Default не задано.");
 
-        services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(connectionString));
+        services.AddDbContext<AppDbContext>(
+            options => options.UseNpgsql(connectionString),
+            contextLifetime: ServiceLifetime.Transient,
+            optionsLifetime: ServiceLifetime.Singleton);
 
         // --- Денис: DbContext, репозиторії, хешер паролів ---
-        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddTransient<IUserRepository, UserRepository>();
+        services.AddTransient<IExerciseRepository, ExerciseRepository>();
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
 
         // --- Софія: репозиторій шаблонів ---
 
         // --- Назар: репозиторії тренувань і прогресу ---
-        services.AddScoped<IWorkoutRecordRepository, WorkoutRecordRepository>();
-        services.AddScoped<IUserProgressRepository, UserProgressRepository>();
+        services.AddTransient<IWorkoutRecordRepository, WorkoutRecordRepository>();
+        services.AddTransient<IUserProgressRepository, UserProgressRepository>();
 
         return services;
     }
