@@ -11,8 +11,10 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
 
         // --- Денис: реєстрація репозиторіїв і хешера ---
-        // --- Софія: шаблони тренувань ---
-        services.AddScoped<IWorkoutTemplateService, WorkoutTemplateService>();
+        services.AddTransient<Interfaces.IAuthService, Services.AuthService>();
+
+        //---Софія: шаблони тренувань ---
+        services.AddTransient<IWorkoutTemplateService, WorkoutTemplateService>();
 
         // --- Назар: відстеження тренувань ---
         services.AddTransient<Interfaces.IWorkoutTrackingService, Services.WorkoutTrackingService>();
