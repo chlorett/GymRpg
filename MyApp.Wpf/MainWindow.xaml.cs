@@ -33,6 +33,9 @@ public partial class MainWindow : Window
     private void OnTrackWorkoutClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<TrackWorkoutWindow>().Show();
 
+    private void OnUserProgressClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<UserProgressWindow>().Show();
+
     private void OnCreateTemplateClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<CreateTemplateWindow>().Show();
 }
