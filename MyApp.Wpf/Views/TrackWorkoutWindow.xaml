@@ -22,12 +22,16 @@
         </Grid.RowDefinitions>
 
         <!-- Заголовок -->
-        <TextBlock Grid.Row="0"
-                   Text="Збереження тренування"
-                   FontSize="22"
-                   FontWeight="Bold"
-                   Margin="0,0,0,16"
-                   Style="{StaticResource FormTitle}" />
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Збереження тренування"
+                       FontSize="22"
+                       FontWeight="Bold"
+                       Style="{StaticResource FormTitle}" />
+            <TextBlock Text="{Binding CurrentUserInfo}"
+                       Foreground="#718096"
+                       FontSize="13"
+                       Margin="0,4,0,0" />
+        </StackPanel>
 
         <!-- Вибір вправи -->
         <StackPanel Grid.Row="1" Margin="0,0,0,16">

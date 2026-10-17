@@ -15,6 +15,10 @@
 
         <StackPanel Grid.Row="0">
             <TextBlock Text="Новий шаблон тренування" Style="{StaticResource FormTitle}" />
+            <TextBlock Text="{Binding CurrentTrainerInfo}"
+                       Foreground="#718096"
+                       FontSize="13"
+                       Margin="0,4,0,8" />
 
             <TextBlock Text="Назва шаблону" Style="{StaticResource FieldLabel}" />
             <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"

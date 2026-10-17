@@ -6,11 +6,17 @@
         WindowStartupLocation="CenterScreen">
     <StackPanel Margin="24" VerticalAlignment="Center">
         <TextBlock Text="PulseForge" Style="{StaticResource FormTitle}" />
-        <Button Content="Реєстрація" Margin="0,16,0,0"
+        <TextBlock x:Name="ActiveUserText"
+                   Text="Поточний атлет: athlete (ID: 1) | Тренер: coach_ivan (ID: 2)"
+                   HorizontalAlignment="Center"
+                   Foreground="#718096"
+                   FontSize="12"
+                   Margin="0,8,0,8" />
+        <Button Content="Реєстрація" Margin="0,12,0,0"
                 Style="{StaticResource PrimaryButton}" Click="OnRegisterClick" />
-        <Button Content="Нове тренування" Margin="0,16,0,0"
+        <Button Content="Нове тренування" Margin="0,12,0,0"
                 Style="{StaticResource PrimaryButton}" Click="OnTrackWorkoutClick" />
-        <Button Content="Шаблон тренування" Margin="0,16,0,0"
+        <Button Content="Шаблон тренування" Margin="0,12,0,0"
                 Style="{StaticResource PrimaryButton}" Click="OnCreateTemplateClick" />
     </StackPanel>
 </Window>
