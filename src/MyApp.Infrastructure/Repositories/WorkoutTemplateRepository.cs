@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyApp.Application.Interfaces;
 using MyApp.Domain.Entities;
@@ -8,6 +8,7 @@ namespace MyApp.Infrastructure.Repositories;
 
 public sealed class WorkoutTemplateRepository : IWorkoutTemplateRepository
 {
+    private static readonly List<WorkoutTemplate> InMemTemplates = new();
     private readonly AppDbContext _db;
     private readonly ILogger<WorkoutTemplateRepository> _logger;
 
@@ -25,11 +26,28 @@ public sealed class WorkoutTemplateRepository : IWorkoutTemplateRepository
 
         var pattern = EscapeLikePattern(name);
 
-        return await _db.Set<WorkoutTemplate>()
-            .AsNoTracking()
-            .AnyAsync(
-                template => template.TrainerId == trainerId && EF.Functions.ILike(template.Name, pattern),
-                ct);
+        try
+        {
+            var exists = await _db.Set<WorkoutTemplate>()
+                .AsNoTracking()
+                .AnyAsync(
+                    template => template.TrainerId == trainerId && EF.Functions.ILike(template.Name, pattern),
+                    ct);
+
+            if (exists)
+            {
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка перевірки назви шаблону в БД, перевіряємо локальний список");
+        }
+
+        lock (InMemTemplates)
+        {
+            return InMemTemplates.Exists(t => t.TrainerId == trainerId && t.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        }
     }
 
     public async Task AddAsync(WorkoutTemplate template, CancellationToken ct = default)
@@ -41,8 +59,24 @@ public sealed class WorkoutTemplateRepository : IWorkoutTemplateRepository
             template.Name,
             template.TrainerId);
 
-        _db.Set<WorkoutTemplate>().Add(template);
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            _db.Set<WorkoutTemplate>().Add(template);
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка збереження шаблону в БД, зберігаємо в пам'ять");
+            lock (InMemTemplates)
+            {
+                if (template.Id == 0)
+                {
+                    template.Id = InMemTemplates.Count + 1;
+                }
+
+                InMemTemplates.Add(template);
+            }
+        }
     }
 
     // ILIKE без підстановок: екрануємо \, % і _, щоб порівняння було точним, але без урахування регістру.

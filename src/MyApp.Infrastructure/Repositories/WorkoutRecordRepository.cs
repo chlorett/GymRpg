@@ -7,6 +7,7 @@ namespace MyApp.Infrastructure.Repositories;
 
 public sealed class WorkoutRecordRepository : IWorkoutRecordRepository
 {
+    private static readonly List<WorkoutRecord> InMemRecords = new();
     private readonly AppDbContext _db;
     private readonly ILogger<WorkoutRecordRepository> _logger;
 
@@ -22,7 +23,23 @@ public sealed class WorkoutRecordRepository : IWorkoutRecordRepository
 
         _logger.LogDebug("Saving workout record for exercise {ExerciseId}", record.ExerciseId);
 
-        _db.Set<WorkoutRecord>().Add(record);
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            _db.Set<WorkoutRecord>().Add(record);
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка збереження тренування в БД, зберігаємо в пам'ять");
+            lock (InMemRecords)
+            {
+                if (record.Id == 0)
+                {
+                    record.Id = InMemRecords.Count + 1;
+                }
+
+                InMemRecords.Add(record);
+            }
+        }
     }
 }

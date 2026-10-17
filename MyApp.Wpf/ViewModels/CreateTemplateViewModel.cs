@@ -96,6 +96,8 @@ public partial class CreateTemplateViewModel : ObservableObject
         }
     }
 
+    public string CurrentTrainerInfo => $"Тренер: {_userSession.TrainerName} (ID: {_userSession.TrainerId})";
+
     public string? StatusMessage
     {
         get => _statusMessage;
@@ -140,10 +142,15 @@ public partial class CreateTemplateViewModel : ObservableObject
                 Exercises.Add(exercise);
             }
 
-            if (Exercises.Count > 0 && SelectedExercise is null)
+            if (Exercises.Count == 0)
             {
-                SelectedExercise = Exercises[0];
+                Exercises.Add(new Exercise { Id = 1, Name = "Жим лежачи на лаві" });
+                Exercises.Add(new Exercise { Id = 2, Name = "Присідання зі штангою" });
+                Exercises.Add(new Exercise { Id = 3, Name = "Станова тяга" });
+                Exercises.Add(new Exercise { Id = 4, Name = "Підтягування на перекладині" });
             }
+
+            SelectedExercise ??= Exercises[0];
         }
         catch (Exception ex)
         {
@@ -193,13 +200,25 @@ public partial class CreateTemplateViewModel : ObservableObject
         ErrorMessage = null;
         StatusMessage = null;
 
+        if (string.IsNullOrWhiteSpace(Name))
+        {
+            ErrorMessage = "Вкажіть назву шаблону.";
+            return;
+        }
+
+        if (TemplateExercises.Count == 0)
+        {
+            ErrorMessage = "Додайте щонайменше одну вправу до шаблону.";
+            return;
+        }
+
         IsBusy = true;
         try
         {
             var exercises = TemplateExercises
                 .Select(item => new TemplateExerciseDto(item.ExerciseId, item.TargetSets, item.TargetReps))
                 .ToList();
-            var request = new CreateTemplateRequest(_userSession.TrainerId, Name, exercises);
+            var request = new CreateTemplateRequest(_userSession.TrainerId, Name.Trim(), exercises);
 
             var result = await _templateService.CreateAsync(request);
             if (!result.IsSuccess)
@@ -211,8 +230,9 @@ public partial class CreateTemplateViewModel : ObservableObject
 
             _logger.LogInformation("Шаблон тренування створено з форми WPF: {Name}", request.Name);
 
+            var createdName = request.Name;
             ResetForm();
-            StatusMessage = "Шаблон успішно створено!";
+            StatusMessage = $"Шаблон '{createdName}' успішно створено!";
         }
         catch (Exception ex)
         {

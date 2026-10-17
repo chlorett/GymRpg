@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MyApp.Application;
 using MyApp.Infrastructure;
+using MyApp.Infrastructure.Data;
 using MyApp.Wpf.Services;
 using MyApp.Wpf.ViewModels;
 using MyApp.Wpf.Views;
@@ -34,6 +35,7 @@ public partial class App : System.Windows.Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
 
         await _host.StartAsync();
+        await DatabaseInitializer.InitializeAsync(_host.Services);
         _host.Services.GetRequiredService<MainWindow>().Show();
     }
 

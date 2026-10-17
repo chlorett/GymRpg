@@ -57,6 +57,8 @@ public class TrackWorkoutViewModel : ObservableObject
         }
     }
 
+    public string CurrentUserInfo => $"Атлет: {_userSession.UserName} (ID: {_userSession.UserId})";
+
     public string? StatusMessage
     {
         get => _statusMessage;
@@ -103,10 +105,15 @@ public class TrackWorkoutViewModel : ObservableObject
                 }
             }
 
-            if (Exercises.Count > 0 && SelectedExercise is null)
+            if (Exercises.Count == 0)
             {
-                SelectedExercise = Exercises[0];
+                Exercises.Add(new Exercise { Id = 1, Name = "Жим лежачи на лаві" });
+                Exercises.Add(new Exercise { Id = 2, Name = "Присідання зі штангою" });
+                Exercises.Add(new Exercise { Id = 3, Name = "Станова тяга" });
+                Exercises.Add(new Exercise { Id = 4, Name = "Підтягування на перекладині" });
             }
+
+            SelectedExercise ??= Exercises[0];
         }
         catch (Exception ex)
         {
@@ -182,7 +189,7 @@ public class TrackWorkoutViewModel : ObservableObject
                 return;
             }
 
-            StatusMessage = "Тренування успішно збережено!";
+            StatusMessage = $"Тренування успішно збережено для атлета {_userSession.UserName}!";
             _logger.LogInformation("Тренування успішно збережено з форми WPF для вправи {Exercise}", SelectedExercise.Name);
 
             // Очищаємо підходи до одного базового

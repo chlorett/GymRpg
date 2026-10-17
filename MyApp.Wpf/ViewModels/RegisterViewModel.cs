@@ -4,12 +4,15 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using MyApp.Application.Dtos;
 using MyApp.Application.Interfaces;
+using MyApp.Wpf.Services;
 
 namespace MyApp.Wpf.ViewModels;
 
 public sealed class RegisterViewModel : ObservableObject
 {
     private readonly IAuthService _authService;
+    private readonly IUserRepository _users;
+    private readonly CurrentUserSession _userSession;
     private readonly ILogger<RegisterViewModel> _logger;
 
     private string _email = string.Empty;
@@ -22,9 +25,15 @@ public sealed class RegisterViewModel : ObservableObject
     private string? _errorMessage;
     private bool _isBusy;
 
-    public RegisterViewModel(IAuthService authService, ILogger<RegisterViewModel> logger)
+    public RegisterViewModel(
+        IAuthService authService,
+        IUserRepository users,
+        CurrentUserSession userSession,
+        ILogger<RegisterViewModel> logger)
     {
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+        _users = users ?? throw new ArgumentNullException(nameof(users));
+        _userSession = userSession ?? throw new ArgumentNullException(nameof(userSession));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         RegisterCommand = new AsyncRelayCommand(RegisterAsync, () => !IsBusy);
@@ -154,7 +163,13 @@ public sealed class RegisterViewModel : ObservableObject
                 return;
             }
 
-            _logger.LogInformation("Користувача зареєстровано з форми WPF");
+            var registeredUser = await _users.GetByUsernameAsync(request.Username);
+            if (registeredUser is not null)
+            {
+                _userSession.SetUser((int)registeredUser.Id, registeredUser.Username);
+            }
+
+            _logger.LogInformation("Користувача зареєстровано з форми WPF: {Username}", request.Username);
             RegistrationSucceeded?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
