@@ -25,7 +25,8 @@ public partial class App : System.Windows.Application
             .UseContentRoot(AppContext.BaseDirectory)
             .ConfigureAppConfiguration(config => config.AddJsonFile("appsettings.Local.json", optional: true))
             .UseSerilog((context, logger) => logger
-                .Enrich.WithProperty("Application", "MyApp")
+                .MinimumLevel.Debug()
+                .Enrich.WithProperty("Application", "PulseForge")
                 .WriteTo.Console()
                 .WriteTo.Seq(context.Configuration["Seq:Url"]
                     ?? throw new InvalidOperationException("Seq:Url не задано.")))
@@ -66,6 +67,8 @@ public partial class App : System.Windows.Application
         // --- Назар ---
         services.AddTransient<TrackWorkoutWindow>();
         services.AddTransient<TrackWorkoutViewModel>();
+        services.AddTransient<UserProgressWindow>();
+        services.AddTransient<UserProgressViewModel>();
 
         // --- Софія ---
         services.AddTransient<CreateTemplateWindow>();
