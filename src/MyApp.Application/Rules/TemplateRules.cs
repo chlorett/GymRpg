@@ -2,6 +2,6 @@
 
 public static class TemplateRules
 {
-    public const int MaxNameLength = 100;
+    public const int MaxNameLength = 75;
     public const int MinTargetSets = 1;
 }

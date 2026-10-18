@@ -22,3 +22,9 @@ public sealed record CreateTemplateRequest(
     int TrainerId,
     string Name,
     IReadOnlyList<TemplateExerciseDto> Exercises);
+
+public sealed record UpdateProfileRequest(
+    int UserId,
+    decimal? WeightKg,
+    decimal? HeightCm,
+    DateOnly? BirthDate);
