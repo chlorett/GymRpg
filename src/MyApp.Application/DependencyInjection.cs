@@ -16,6 +16,9 @@ public static class DependencyInjection
         //---Софія: шаблони тренувань ---
         services.AddTransient<IWorkoutTemplateService, WorkoutTemplateService>();
 
+        // --- Софія: профіль користувача ---
+        services.AddScoped<IUserProfileService, UserProfileService>();
+
         // --- Назар: відстеження тренувань та RPG-прогрес ---
         services.AddTransient<Interfaces.IWorkoutTrackingService, Services.WorkoutTrackingService>();
         services.AddTransient<Interfaces.IUserProgressService, Services.UserProgressService>();

@@ -73,6 +73,8 @@ public partial class App : System.Windows.Application
         // --- Софія ---
         services.AddTransient<CreateTemplateWindow>();
         services.AddTransient<CreateTemplateViewModel>();
+        services.AddTransient<ProfileViewModel>();
+        services.AddTransient<ProfileWindow>();
     }
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

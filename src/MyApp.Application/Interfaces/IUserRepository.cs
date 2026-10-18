@@ -13,4 +13,12 @@ public interface IUserRepository
     Task<User?> GetByUsernameAsync(string username, CancellationToken ct = default);
 
     Task AddAsync(User user, CancellationToken ct = default);
+
+    // null означає «залишити без змін». Повертає false, якщо користувача немає. Софія
+    Task<bool> UpdateProfileAsync(
+        int userId,
+        decimal? weightKg,
+        decimal? heightCm,
+        DateOnly? birthDate,
+        CancellationToken ct = default);
 }

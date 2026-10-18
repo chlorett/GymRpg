@@ -165,4 +165,63 @@ public sealed class UserRepository : IUserRepository
             }
         }
     }
+
+    public async Task<bool> UpdateProfileAsync(
+    int userId,
+    decimal? weightKg,
+    decimal? heightCm,
+    DateOnly? birthDate,
+    CancellationToken ct = default)
+    {
+        _logger.LogDebug("Updating profile for user {UserId}", userId);
+
+        try
+        {
+            // Без AsNoTracking, щоб EF відстежив зміни
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+
+            if (user is not null)
+            {
+                ApplyProfile(user, weightKg, heightCm, birthDate);
+                await _db.SaveChangesAsync(ct);
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка збереження профілю {UserId} в БД, оновлюємо локальний список", userId);
+        }
+
+        lock (InMemUsers)
+        {
+            var local = InMemUsers.Find(u => u.Id == userId);
+            if (local is null)
+            {
+                return false;
+            }
+
+            ApplyProfile(local, weightKg, heightCm, birthDate);
+            return true;
+        }
+    }
+
+    private static void ApplyProfile(User user, decimal? weightKg, decimal? heightCm, DateOnly? birthDate)
+    {
+        if (weightKg is not null)
+        {
+            user.WeightKg = weightKg;
+        }
+
+        if (heightCm is not null)
+        {
+            user.HeightCm = heightCm;
+        }
+
+        if (birthDate is { } date)
+        {
+            user.BirthDate = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        }
+
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+    }
 }
