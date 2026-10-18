@@ -33,7 +33,9 @@ public static class DatabaseInitializer
                     new Exercise { Name = "Армійський жим", Description = "Жим штанги стоячи для розвитку плечового пояса та дельт." },
                     new Exercise { Name = "Віджимання на брусах", Description = "Вправа для нижньої частини грудей та трицепсів." },
                     new Exercise { Name = "Тяга штанги в нахилі", Description = "Вправа для товщини м'язів спини." },
-                    new Exercise { Name = "Згинання рук зі штангою", Description = "Ізолююча вправа для біцепсів." });
+                    new Exercise { Name = "Згинання рук зі штангою", Description = "Ізолююча вправа для біцепсів." },
+                    new Exercise { Name = "Жим гантелей на похилій лаві", Description = "Вправа для верхньої частини грудей та передньої дельти." },
+                    new Exercise { Name = "Румунська тяга", Description = "Вправа для біцепсів стегон та сідниць." });
                 await db.SaveChangesAsync();
             }
 

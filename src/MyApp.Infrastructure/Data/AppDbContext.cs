@@ -240,6 +240,8 @@ public partial class AppDbContext : DbContext
 
             entity.HasIndex(e => e.GymId, "users_gym_idx").HasFilter("(gym_id IS NOT NULL)");
 
+            entity.HasIndex(e => e.Username, "users_username_uq").IsUnique();
+
             entity.Property(e => e.Id)
                 .UseIdentityAlwaysColumn()
                 .HasColumnName("id");
