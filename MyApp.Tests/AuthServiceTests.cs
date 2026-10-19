@@ -316,6 +316,101 @@ public class AuthServiceTests
         AssertValidationFailed(result, nameof(RegisterRequest.BirthDate));
     }
 
+    [Fact]
+    public async Task LoginAsync_WhenRequestIsNull_ReturnsValidationFailed()
+    {
+        // Act
+        var result = await _service.LoginAsync(null!);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
+        Assert.Equal("request", result.Field);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("invalid-email")]
+    [InlineData("user@local")]
+    public async Task LoginAsync_WhenEmailInvalid_ReturnsValidationFailed(string email)
+    {
+        // Act
+        var result = await _service.LoginAsync(new LoginRequest(email, ValidPass));
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
+        Assert.Equal(nameof(LoginRequest.Email), result.Field);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenPasswordEmpty_ReturnsValidationFailed()
+    {
+        // Act
+        var result = await _service.LoginAsync(new LoginRequest("denis@example.com", string.Empty));
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
+        Assert.Equal(nameof(LoginRequest.Password), result.Field);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenUserDoesNotExist_ReturnsInvalidCredentials()
+    {
+        // Arrange
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("denis@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        // Act
+        var result = await _service.LoginAsync(new LoginRequest("denis@example.com", ValidPass));
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.InvalidCredentials, result.ErrorCode);
+        Assert.Equal(nameof(LoginRequest.Email), result.Field);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenPasswordIncorrect_ReturnsInvalidCredentials()
+    {
+        // Arrange
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("denis@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new User { Id = 1, Email = "denis@example.com", Username = "denis", PasswordHash = "stored-hash" });
+        _hasherMock
+            .Setup(h => h.Verify("wrong-pass", "stored-hash"))
+            .Returns(false);
+
+        // Act
+        var result = await _service.LoginAsync(new LoginRequest("denis@example.com", "wrong-pass"));
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.InvalidCredentials, result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenCredentialsValid_ReturnsSuccess()
+    {
+        // Arrange
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("denis@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new User { Id = 1, Email = "denis@example.com", Username = "denis", PasswordHash = "stored-hash" });
+        _hasherMock
+            .Setup(h => h.Verify(ValidPass, "stored-hash"))
+            .Returns(true);
+
+        // Act
+        var result = await _service.LoginAsync(new LoginRequest("  Denis@Example.COM ", ValidPass));
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        _hasherMock.Verify(h => h.Verify(ValidPass, "stored-hash"), Times.Once);
+    }
+
     private static RegisterRequest CreateRequest(
         string email = "denis@example.com",
         string username = "denis_rusyn",

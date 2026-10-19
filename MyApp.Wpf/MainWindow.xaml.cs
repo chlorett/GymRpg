@@ -27,6 +27,9 @@ public partial class MainWindow : Window
         });
     }
 
+    private void OnLoginClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<LoginWindow>().Show();
+
     private void OnRegisterClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<RegisterWindow>().Show();
 

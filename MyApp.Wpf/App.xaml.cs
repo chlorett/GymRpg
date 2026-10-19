@@ -26,6 +26,7 @@ public partial class App : System.Windows.Application
             .ConfigureAppConfiguration(config => config.AddJsonFile("appsettings.Local.json", optional: true))
             .UseSerilog((context, logger) => logger
                 .MinimumLevel.Debug()
+                .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
                 .Enrich.WithProperty("Application", "PulseForge")
                 .WriteTo.Console()
                 .WriteTo.Seq(context.Configuration["Seq:Url"]
@@ -61,6 +62,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<MainWindow>();
 
         // --- Денис ---
+        services.AddTransient<LoginWindow>();
+        services.AddTransient<LoginViewModel>();
         services.AddTransient<RegisterWindow>();
         services.AddTransient<RegisterViewModel>();
 

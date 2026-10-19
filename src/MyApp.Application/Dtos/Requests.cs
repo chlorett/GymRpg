@@ -9,6 +9,10 @@ public sealed record RegisterRequest(
     decimal HeightCm,
     DateOnly BirthDate);
 
+public sealed record LoginRequest(
+    string Email,
+    string Password);
+
 public sealed record WorkoutSetDto(int Reps, decimal Weight);
 
 public sealed record TrackWorkoutRequest(

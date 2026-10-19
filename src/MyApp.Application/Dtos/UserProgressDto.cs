@@ -1,8 +1,6 @@
 namespace MyApp.Application.Dtos;
 
-/// <summary>
-/// Повний RPG-профіль атлета: рівень, XP, прогрес до наступного рівня та останні тренування.
-/// </summary>
+// Повний RPG-профіль атлета: рівень, XP, прогрес до наступного рівня та останні тренування.
 public sealed record UserProgressDto(
     int UserId,
     string Username,
