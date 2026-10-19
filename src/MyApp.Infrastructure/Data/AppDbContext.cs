@@ -55,12 +55,6 @@ public partial class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder
-            .HasPostgresEnum("pulseforge", "equipment_type", new[] { "gym", "calisthenics" })
-            .HasPostgresEnum("pulseforge", "medal_condition_type", new[] { "workouts_count", "level", "total_xp", "streak_days" })
-            .HasPostgresEnum("pulseforge", "session_status", new[] { "planned", "completed", "cancelled" })
-            .HasPostgresEnum("pulseforge", "user_role", new[] { "user", "trainer", "admin" });
-
         modelBuilder.Entity<Division>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("divisions_pkey");
