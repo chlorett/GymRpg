@@ -64,6 +64,39 @@ public sealed class AuthService : IAuthService
         return OperationResult.Success();
     }
 
+    public async Task<OperationResult> LoginAsync(LoginRequest request, CancellationToken ct = default)
+    {
+        if (request is null)
+        {
+            _logger.LogWarning("Login rejected: request is null");
+            return Fail(ErrorCodes.ValidationFailed, nameof(request), "Запит не може бути порожнім.");
+        }
+
+        var email = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
+        if (!IsValidEmail(email))
+        {
+            var invalidEmail = Fail(ErrorCodes.ValidationFailed, nameof(LoginRequest.Email), "Вкажіть коректний email.");
+            return RejectLogin(invalidEmail, email);
+        }
+
+        if (string.IsNullOrEmpty(request.Password))
+        {
+            var emptyPass = Fail(ErrorCodes.ValidationFailed, nameof(LoginRequest.Password), "Введіть пароль.");
+            return RejectLogin(emptyPass, email);
+        }
+
+        var user = await _users.GetByEmailAsync(email, ct);
+        if (user is null || !_hasher.Verify(request.Password, user.PasswordHash))
+        {
+            var invalidCreds = Fail(ErrorCodes.InvalidCredentials, nameof(LoginRequest.Email), "Невірний email або пароль.");
+            return RejectLogin(invalidCreds, email);
+        }
+
+        _logger.LogInformation("User logged in: {Username}", user.Username);
+
+        return OperationResult.Success();
+    }
+
     private static OperationResult? Validate(RegisterRequest request, string email, string username, DateOnly today)
     {
         return ValidateUsername(username)
@@ -242,6 +275,17 @@ public sealed class AuthService : IAuthService
     {
         _logger.LogWarning(
             "Registration rejected: error {ErrorCode}, field {Field}",
+            result.ErrorCode,
+            result.Field);
+
+        return result;
+    }
+
+    private OperationResult RejectLogin(OperationResult result, string email)
+    {
+        _logger.LogWarning(
+            "Login rejected for {Email}: error {ErrorCode}, field {Field}",
+            email,
             result.ErrorCode,
             result.Field);
 

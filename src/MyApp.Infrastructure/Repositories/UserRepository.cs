@@ -9,6 +9,8 @@ namespace MyApp.Infrastructure.Repositories;
 
 public sealed class UserRepository : IUserRepository
 {
+    private static readonly string DefaultPasswordHash = BCrypt.Net.BCrypt.HashPassword("123456");
+
     private static readonly List<User> InMemUsers = new()
     {
         new User
@@ -16,7 +18,7 @@ public sealed class UserRepository : IUserRepository
             Id = 1,
             Email = "athlete@gym.com",
             Username = "athlete",
-            PasswordHash = "$2a$11$vJq15M8y3H3YqB6jO6p3m.7P4Y1m3n5o6p7q8r9s0t1u2v3w4x5y6",
+            PasswordHash = DefaultPasswordHash,
             Role = UserRole.User,
             WeightKg = 75.0m,
             HeightCm = 180.0m,
@@ -29,7 +31,7 @@ public sealed class UserRepository : IUserRepository
             Id = 2,
             Email = "trainer@gym.com",
             Username = "coach_ivan",
-            PasswordHash = "$2a$11$vJq15M8y3H3YqB6jO6p3m.7P4Y1m3n5o6p7q8r9s0t1u2v3w4x5y6",
+            PasswordHash = DefaultPasswordHash,
             Role = UserRole.Trainer,
             WeightKg = 85.0m,
             HeightCm = 185.0m,
