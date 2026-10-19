@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using MyApp.Domain.Entities;
@@ -89,6 +89,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("created_at");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
             entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.EquipmentType).HasColumnName("equipment_type");
             entity.Property(e => e.IsDeleted).HasColumnName("is_deleted");
             entity.Property(e => e.Name)
                 .HasMaxLength(150)
@@ -152,6 +153,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Id)
                 .UseIdentityAlwaysColumn()
                 .HasColumnName("id");
+            entity.Property(e => e.ConditionType).HasColumnName("condition_type");
             entity.Property(e => e.ConditionValue).HasColumnName("condition_value");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("now()")
@@ -263,6 +265,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.PasswordHash)
                 .HasMaxLength(255)
                 .HasColumnName("password_hash");
+            entity.Property(e => e.Role).HasColumnName("role");
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
@@ -459,6 +462,7 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.ScheduledDate).HasColumnName("scheduled_date");
+            entity.Property(e => e.Status).HasColumnName("status");
             entity.Property(e => e.WorkoutId).HasColumnName("workout_id");
 
             entity.HasOne(d => d.Workout).WithMany(p => p.WorkoutSessions)
@@ -510,6 +514,7 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(150)
                 .HasColumnName("name");
             entity.Property(e => e.TrainerId).HasColumnName("trainer_id");
+            entity.Property(e => e.TrainerRole).HasColumnName("trainer_role");
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");

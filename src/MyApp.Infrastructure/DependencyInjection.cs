@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MyApp.Application.Interfaces;
+using MyApp.Domain.Enums;
 using MyApp.Infrastructure.Data;
 using MyApp.Infrastructure.Repositories;
 using MyApp.Infrastructure.Security;
@@ -20,7 +21,13 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("ConnectionStrings:Default не задано.");
 
         services.AddDbContext<AppDbContext>(
-            options => options.UseNpgsql(connectionString),
+            options => options.UseNpgsql(
+                connectionString,
+                npgsql => npgsql
+                    .MapEnum<EquipmentType>("equipment_type", "pulseforge")
+                    .MapEnum<MedalConditionType>("medal_condition_type", "pulseforge")
+                    .MapEnum<SessionStatus>("session_status", "pulseforge")
+                    .MapEnum<UserRole>("user_role", "pulseforge")),
             contextLifetime: ServiceLifetime.Transient,
             optionsLifetime: ServiceLifetime.Singleton);
 
