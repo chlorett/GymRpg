@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging.Testing;
+using Microsoft.Extensions.Logging.Testing;
 using Moq;
 using MyApp.Application.Interfaces;
 using MyApp.Application.Services;
@@ -39,9 +39,9 @@ public class ExerciseCatalogServiceTests
     }
 
     [Theory]
-    [InlineData("ЖИМ")]
-    [InlineData("жим")]
-    [InlineData("  Жим  ")]
+    [InlineData("ЖИМ ЛЕЖАЧИ")]
+    [InlineData("жим лежачи")]
+    [InlineData("  Жим лежачи  ")]
     public async Task GetExercisesAsync_SearchByName_IgnoresCase(string query)
     {
         var result = await this.service.GetExercisesAsync(query, null);
