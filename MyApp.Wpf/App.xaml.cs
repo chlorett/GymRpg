@@ -66,6 +66,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<LoginViewModel>();
         services.AddTransient<RegisterWindow>();
         services.AddTransient<RegisterViewModel>();
+        services.AddTransient<ChangePasswordWindow>();
+        services.AddTransient<ChangePasswordViewModel>();
 
         // --- Назар ---
         services.AddTransient<TrackWorkoutWindow>();
