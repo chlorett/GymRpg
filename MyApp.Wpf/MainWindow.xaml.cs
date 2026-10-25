@@ -39,6 +39,9 @@ public partial class MainWindow : Window
     private void OnUserProgressClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<UserProgressWindow>().Show();
 
+    private void OnLeaderboardClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<LeaderboardWindow>().Show();
+
     private void OnCreateTemplateClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<CreateTemplateWindow>().Show();
 

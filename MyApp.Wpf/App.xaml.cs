@@ -74,6 +74,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<TrackWorkoutViewModel>();
         services.AddTransient<UserProgressWindow>();
         services.AddTransient<UserProgressViewModel>();
+        services.AddTransient<LeaderboardWindow>();
+        services.AddTransient<LeaderboardViewModel>();
 
         // --- Софія ---
         services.AddTransient<CreateTemplateWindow>();
