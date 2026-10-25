@@ -44,4 +44,7 @@ public partial class MainWindow : Window
 
     private void OnProfileClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<ProfileWindow>().Show();
+
+    private void OnExerciseCatalogClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<ExerciseCatalogWindow>().Show();
 }

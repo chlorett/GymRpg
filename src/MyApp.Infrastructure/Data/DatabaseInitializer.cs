@@ -21,23 +21,8 @@ public static class DatabaseInitializer
             logger.LogInformation("Ініціалізація бази даних PulseForge...");
             await db.Database.EnsureCreatedAsync();
 
-            // 1. Початкові вправи
-            if (!await db.Exercises.AnyAsync())
-            {
-                logger.LogInformation("Засівання каталогу базових вправ...");
-                db.Exercises.AddRange(
-                    new Exercise { Name = "Жим лежачи на лаві", Description = "Базова вправа для розвитку грудних м'язів, трицепсів та передньої дельти." },
-                    new Exercise { Name = "Присідання зі штангою", Description = "Основна вправа для розвитку квадрицепсів, сідниць та м'язів кора." },
-                    new Exercise { Name = "Станова тяга", Description = "Фундаментальна вправа для спини, біцепсів стегон та трапецій." },
-                    new Exercise { Name = "Підтягування на перекладині", Description = "Вправа з власною вагою для найширших м'язів спини та біцепсів." },
-                    new Exercise { Name = "Армійський жим", Description = "Жим штанги стоячи для розвитку плечового пояса та дельт." },
-                    new Exercise { Name = "Віджимання на брусах", Description = "Вправа для нижньої частини грудей та трицепсів." },
-                    new Exercise { Name = "Тяга штанги в нахилі", Description = "Вправа для товщини м'язів спини." },
-                    new Exercise { Name = "Згинання рук зі штангою", Description = "Ізолююча вправа для біцепсів." },
-                    new Exercise { Name = "Жим гантелей на похилій лаві", Description = "Вправа для верхньої частини грудей та передньої дельти." },
-                    new Exercise { Name = "Румунська тяга", Description = "Вправа для біцепсів стегон та сідниць." });
-                await db.SaveChangesAsync();
-            }
+            // 1. Початкові вправи (це змінила Софія)
+            await ExerciseSeedData.SeedAsync(db, logger);
 
             // 2. Початкові користувачі (Атлет і Тренер)
             if (!await db.Users.AnyAsync())

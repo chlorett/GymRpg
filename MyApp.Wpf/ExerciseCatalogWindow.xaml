@@ -1,0 +1,103 @@
+<Window x:Class="MyApp.Wpf.Views.ExerciseCatalogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Каталог вправ"
+        Width="900" Height="560"
+        MinWidth="720" MinHeight="420"
+        WindowStartupLocation="CenterScreen"
+        Loaded="OnLoaded">
+    <Grid Margin="20">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MinWidth="280"/>
+            <ColumnDefinition Width="20"/>
+            <ColumnDefinition Width="1.3*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Ліва частина: пошук, фільтр, список -->
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Каталог вправ" Style="{StaticResource FormTitle}" Margin="0,0,0,12"/>
+
+            <TextBox Grid.Row="1"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Пошук за назвою або описом"
+                     Padding="6" Margin="0,0,0,8"/>
+
+            <ComboBox Grid.Row="2"
+                      ItemsSource="{Binding FilterOptions}"
+                      SelectedItem="{Binding SelectedFilter}"
+                      DisplayMemberPath="Label"
+                      Padding="6" Margin="0,0,0,8"/>
+
+            <Grid Grid.Row="3">
+                <ListBox ItemsSource="{Binding Exercises}"
+                         SelectedItem="{Binding SelectedExercise}"
+                         DisplayMemberPath="Name"/>
+                <TextBlock Text="Вправ не знайдено"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="Gray">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </Grid>
+
+        <!-- Права частина: деталі вправи -->
+        <Border Grid.Column="2" BorderBrush="#DDDDDD" BorderThickness="1" Padding="16">
+            <Grid>
+                <TextBlock Text="Оберіть вправу зі списку"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="Gray">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedExercise}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel DataContext="{Binding SelectedExercise}">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+
+                        <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="Bold"
+                                   TextWrapping="Wrap" Foreground="#C53E17"/>
+                        <TextBlock Text="{Binding EquipmentLabel}" Foreground="Gray" Margin="0,4,0,16"/>
+
+                        <TextBlock Text="Опис" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+                        <TextBlock Text="Техніка виконання" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding Technique}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
