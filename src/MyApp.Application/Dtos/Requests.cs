@@ -13,6 +13,12 @@ public sealed record LoginRequest(
     string Email,
     string Password);
 
+public sealed record ChangePasswordRequest(
+    int UserId,
+    string CurrentPassword,
+    string NewPassword,
+    string ConfirmNewPassword);
+
 public sealed record WorkoutSetDto(int Reps, decimal Weight);
 
 public sealed record TrackWorkoutRequest(

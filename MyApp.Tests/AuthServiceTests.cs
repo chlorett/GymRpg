@@ -13,6 +13,10 @@ namespace MyApp.Tests;
 public class AuthServiceTests
 {
     private const string ValidPass = "Strong123";
+    private const string CurrentPass = "OldPass123";
+    private const string NewPass = "NewPass456";
+    private const string StoredHash = "stored-hash";
+    private const int StoredUserId = 7;
 
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IPasswordHasher> _hasherMock = new();
@@ -411,6 +415,131 @@ public class AuthServiceTests
         _hasherMock.Verify(h => h.Verify(ValidPass, "stored-hash"), Times.Once);
     }
 
+    [Fact]
+    public async Task ChangePasswordAsync_WhenRequestValid_SavesNewHashAndReturnsSuccess()
+    {
+        // Arrange
+        SetupStoredUser(currentPasswordMatches: true);
+        _hasherMock.Setup(h => h.Hash(NewPass)).Returns("new-hash");
+        _userRepositoryMock
+            .Setup(r => r.UpdatePasswordAsync(StoredUserId, "new-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _service.ChangePasswordAsync(CreateChangePasswordRequest());
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        _hasherMock.Verify(h => h.Verify(CurrentPass, StoredHash), Times.Once);
+        _userRepositoryMock.Verify(
+            r => r.UpdatePasswordAsync(StoredUserId, "new-hash", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WhenCurrentPasswordWrong_ReturnsInvalidCredentials()
+    {
+        // Arrange
+        SetupStoredUser(currentPasswordMatches: false);
+
+        // Act
+        var result = await _service.ChangePasswordAsync(CreateChangePasswordRequest(current: "WrongPass1"));
+
+        // Assert
+        AssertChangePasswordFailed(result, ErrorCodes.InvalidCredentials, nameof(ChangePasswordRequest.CurrentPassword));
+        Assert.Equal("Поточний пароль вказано невірно.", result.Message);
+        _hasherMock.Verify(h => h.Hash(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WhenCurrentPasswordEmpty_ReturnsValidationFailed()
+    {
+        // Act
+        var result = await _service.ChangePasswordAsync(CreateChangePasswordRequest(current: string.Empty));
+
+        // Assert
+        AssertChangePasswordFailed(result, ErrorCodes.ValidationFailed, nameof(ChangePasswordRequest.CurrentPassword));
+    }
+
+    [Theory]
+    [InlineData("1234567")]
+    [InlineData("short1")]
+    public async Task ChangePasswordAsync_WhenNewPasswordTooShort_ReturnsValidationFailed(string newPass)
+    {
+        // Act
+        var result = await _service.ChangePasswordAsync(CreateChangePasswordRequest(newPass: newPass));
+
+        // Assert
+        AssertChangePasswordFailed(result, ErrorCodes.ValidationFailed, nameof(ChangePasswordRequest.NewPassword));
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WhenNewPasswordExceedsBcryptLimit_ReturnsValidationFailed()
+    {
+        // Act
+        var result = await _service.ChangePasswordAsync(
+            CreateChangePasswordRequest(newPass: new string('a', AuthRules.MaxPasswordBytes + 1)));
+
+        // Assert
+        AssertChangePasswordFailed(result, ErrorCodes.ValidationFailed, nameof(ChangePasswordRequest.NewPassword));
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WhenNewPasswordsDoNotMatch_ReturnsValidationFailed()
+    {
+        // Act
+        var result = await _service.ChangePasswordAsync(CreateChangePasswordRequest(confirm: "Different789"));
+
+        // Assert
+        AssertChangePasswordFailed(result, ErrorCodes.ValidationFailed, nameof(ChangePasswordRequest.ConfirmNewPassword));
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WhenUserDoesNotExist_ReturnsUserNotFound()
+    {
+        // Arrange
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(StoredUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        // Act
+        var result = await _service.ChangePasswordAsync(CreateChangePasswordRequest());
+
+        // Assert
+        AssertChangePasswordFailed(result, ErrorCodes.UserNotFound, nameof(ChangePasswordRequest.UserId));
+        _hasherMock.Verify(h => h.Verify(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WhenRepositoryDidNotUpdateUser_ReturnsUserNotFound()
+    {
+        // Arrange
+        SetupStoredUser(currentPasswordMatches: true);
+        _userRepositoryMock
+            .Setup(r => r.UpdatePasswordAsync(StoredUserId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _service.ChangePasswordAsync(CreateChangePasswordRequest());
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.UserNotFound, result.ErrorCode);
+        Assert.Equal(nameof(ChangePasswordRequest.UserId), result.Field);
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WhenRequestIsNull_ReturnsValidationFailed()
+    {
+        // Act
+        var result = await _service.ChangePasswordAsync(null!);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
+        Assert.Equal("request", result.Field);
+    }
+
     private static RegisterRequest CreateRequest(
         string email = "denis@example.com",
         string username = "denis_rusyn",
@@ -430,6 +559,15 @@ public class AuthServiceTests
             birthDate ?? new DateOnly(1995, 5, 20));
     }
 
+    private static ChangePasswordRequest CreateChangePasswordRequest(
+        string current = CurrentPass,
+        string newPass = NewPass,
+        string? confirm = null,
+        int userId = StoredUserId)
+    {
+        return new ChangePasswordRequest(userId, current, newPass, confirm ?? newPass);
+    }
+
     private void AssertValidationFailed(OperationResult result, string expectedField)
     {
         Assert.False(result.IsSuccess);
@@ -440,5 +578,26 @@ public class AuthServiceTests
             r => r.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Never);
         _hasherMock.Verify(h => h.Hash(It.IsAny<string>()), Times.Never);
+    }
+
+    private void SetupStoredUser(bool currentPasswordMatches)
+    {
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(StoredUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new User { Id = StoredUserId, Email = "denis@example.com", Username = "denis", PasswordHash = StoredHash });
+        _hasherMock
+            .Setup(h => h.Verify(It.IsAny<string>(), StoredHash))
+            .Returns(currentPasswordMatches);
+    }
+
+    private void AssertChangePasswordFailed(OperationResult result, string expectedCode, string expectedField)
+    {
+        Assert.False(result.IsSuccess);
+        Assert.Equal(expectedCode, result.ErrorCode);
+        Assert.Equal(expectedField, result.Field);
+
+        _userRepositoryMock.Verify(
+            r => r.UpdatePasswordAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

@@ -11,6 +11,8 @@ namespace MyApp.Application.Services;
 
 public sealed class AuthService : IAuthService
 {
+    private const string UserNotFoundMessage = "Користувача не знайдено.";
+
     private readonly IUserRepository _users;
     private readonly IPasswordHasher _hasher;
     private readonly TimeProvider _time;
@@ -97,11 +99,57 @@ public sealed class AuthService : IAuthService
         return OperationResult.Success();
     }
 
+    public async Task<OperationResult> ChangePasswordAsync(ChangePasswordRequest request, CancellationToken ct = default)
+    {
+        if (request is null)
+        {
+            _logger.LogWarning("Password change rejected: request is null");
+            return Fail(ErrorCodes.ValidationFailed, nameof(request), "Запит не може бути порожнім.");
+        }
+
+        var invalid = ValidateChangePassword(request);
+        if (invalid is not null)
+        {
+            return RejectPasswordChange(invalid, request.UserId);
+        }
+
+        var user = await _users.GetByIdAsync(request.UserId, ct);
+        if (user is null)
+        {
+            var missing = Fail(ErrorCodes.UserNotFound, nameof(ChangePasswordRequest.UserId), UserNotFoundMessage);
+            return RejectPasswordChange(missing, request.UserId);
+        }
+
+        if (!_hasher.Verify(request.CurrentPassword, user.PasswordHash))
+        {
+            var wrongCurrent = Fail(
+                ErrorCodes.InvalidCredentials,
+                nameof(ChangePasswordRequest.CurrentPassword),
+                "Поточний пароль вказано невірно.");
+            return RejectPasswordChange(wrongCurrent, request.UserId);
+        }
+
+        var newHash = _hasher.Hash(request.NewPassword);
+        if (!await _users.UpdatePasswordAsync(request.UserId, newHash, ct))
+        {
+            var notSaved = Fail(ErrorCodes.UserNotFound, nameof(ChangePasswordRequest.UserId), UserNotFoundMessage);
+            return RejectPasswordChange(notSaved, request.UserId);
+        }
+
+        _logger.LogInformation("Password changed for user {UserId}", request.UserId);
+
+        return OperationResult.Success();
+    }
+
     private static OperationResult? Validate(RegisterRequest request, string email, string username, DateOnly today)
     {
         return ValidateUsername(username)
             ?? ValidateEmail(email)
-            ?? ValidatePassword(request.Password, request.ConfirmPassword)
+            ?? ValidatePassword(
+                request.Password,
+                request.ConfirmPassword,
+                nameof(RegisterRequest.Password),
+                nameof(RegisterRequest.ConfirmPassword))
             ?? ValidateWeight(request.WeightKg)
             ?? ValidateHeight(request.HeightCm)
             ?? ValidateBirthDate(request.BirthDate, today);
@@ -160,13 +208,30 @@ public sealed class AuthService : IAuthService
             && address.Host.Contains('.', StringComparison.Ordinal);
     }
 
-    private static OperationResult? ValidatePassword(string password, string confirmPassword)
+    private static OperationResult? ValidateChangePassword(ChangePasswordRequest request)
+    {
+        if (string.IsNullOrEmpty(request.CurrentPassword))
+        {
+            return Fail(
+                ErrorCodes.ValidationFailed,
+                nameof(ChangePasswordRequest.CurrentPassword),
+                "Введіть поточний пароль.");
+        }
+
+        return ValidatePassword(
+            request.NewPassword,
+            request.ConfirmNewPassword,
+            nameof(ChangePasswordRequest.NewPassword),
+            nameof(ChangePasswordRequest.ConfirmNewPassword));
+    }
+
+    private static OperationResult? ValidatePassword(string password, string confirmPassword, string passwordField, string confirmField)
     {
         if (string.IsNullOrEmpty(password) || password.Length < AuthRules.MinPasswordLength)
         {
             return Fail(
                 ErrorCodes.ValidationFailed,
-                nameof(RegisterRequest.Password),
+                passwordField,
                 $"Пароль має містити щонайменше {AuthRules.MinPasswordLength} символів.");
         }
 
@@ -174,13 +239,13 @@ public sealed class AuthService : IAuthService
         {
             return Fail(
                 ErrorCodes.ValidationFailed,
-                nameof(RegisterRequest.Password),
+                passwordField,
                 $"Пароль занадто довгий: не більше {AuthRules.MaxPasswordBytes} байтів (кирилична літера займає 2 байти).");
         }
 
         if (!string.Equals(password, confirmPassword, StringComparison.Ordinal))
         {
-            return Fail(ErrorCodes.ValidationFailed, nameof(RegisterRequest.ConfirmPassword), "Паролі не збігаються.");
+            return Fail(ErrorCodes.ValidationFailed, confirmField, "Паролі не збігаються.");
         }
 
         return null;
@@ -286,6 +351,17 @@ public sealed class AuthService : IAuthService
         _logger.LogWarning(
             "Login rejected for {Email}: error {ErrorCode}, field {Field}",
             email,
+            result.ErrorCode,
+            result.Field);
+
+        return result;
+    }
+
+    private OperationResult RejectPasswordChange(OperationResult result, int userId)
+    {
+        _logger.LogWarning(
+            "Password change rejected for user {UserId}: error {ErrorCode}, field {Field}",
+            userId,
             result.ErrorCode,
             result.Field);
 
