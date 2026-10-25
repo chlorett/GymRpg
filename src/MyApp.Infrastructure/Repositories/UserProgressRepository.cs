@@ -120,9 +120,11 @@ public sealed class UserProgressRepository : IUserProgressRepository
 
     private static List<User> BuildFallbackLeaderboardUsers()
     {
+        var registeredUsers = UserRepository.GetInMemoryUsersSnapshot();
+
         lock (InMemProgress)
         {
-            var result = new List<User>(FallbackAthletes.Count);
+            var result = new List<User>(FallbackAthletes.Count + registeredUsers.Count);
             foreach (var item in FallbackAthletes)
             {
                 InMemProgress.TryGetValue(item.Id, out var progress);
@@ -132,13 +134,22 @@ public sealed class UserProgressRepository : IUserProgressRepository
                     Username = item.Username,
                     Email = item.Email,
                     Role = item.Role,
-                    UserProgress = progress ?? new UserProgress
-                    {
-                        UserId = item.Id,
-                        Level = 1,
-                        Xp = 0,
-                        UpdatedAt = DateTimeOffset.UtcNow,
-                    },
+                    UserProgress = progress ?? CreateDefaultProgress(item.Id),
+                });
+            }
+
+            foreach (var regUser in registeredUsers.Where(regUser => result.TrueForAll(u => u.Id != regUser.Id)))
+            {
+                InMemProgress.TryGetValue(regUser.Id, out var progress);
+                result.Add(new User
+                {
+                    Id = regUser.Id,
+                    Username = regUser.Username,
+                    Email = regUser.Email,
+                    Role = regUser.Role,
+                    IsBlocked = regUser.IsBlocked,
+                    IsExcludedFromLeaderboard = regUser.IsExcludedFromLeaderboard,
+                    UserProgress = progress ?? CreateDefaultProgress(regUser.Id),
                 });
             }
 
@@ -157,4 +168,13 @@ public sealed class UserProgressRepository : IUserProgressRepository
             return result;
         }
     }
+
+    private static UserProgress CreateDefaultProgress(long userId) =>
+        new()
+        {
+            UserId = userId,
+            Level = 1,
+            Xp = 0,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
 }

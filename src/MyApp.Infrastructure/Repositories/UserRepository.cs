@@ -24,7 +24,7 @@ public sealed class UserRepository : IUserRepository
             HeightCm = 180.0m,
             BirthDate = new DateTime(2002, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
+            UpdatedAt = DateTimeOffset.UtcNow,
         },
         new User
         {
@@ -37,8 +37,8 @@ public sealed class UserRepository : IUserRepository
             HeightCm = 185.0m,
             BirthDate = new DateTime(1994, 5, 15, 0, 0, 0, DateTimeKind.Utc),
             CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        }
+            UpdatedAt = DateTimeOffset.UtcNow,
+        },
     };
 
     private readonly AppDbContext _db;
@@ -169,11 +169,11 @@ public sealed class UserRepository : IUserRepository
     }
 
     public async Task<bool> UpdateProfileAsync(
-    int userId,
-    decimal? weightKg,
-    decimal? heightCm,
-    DateOnly? birthDate,
-    CancellationToken ct = default)
+        int userId,
+        decimal? weightKg,
+        decimal? heightCm,
+        DateOnly? birthDate,
+        CancellationToken ct = default)
     {
         _logger.LogDebug("Updating profile for user {UserId}", userId);
 
@@ -240,6 +240,14 @@ public sealed class UserRepository : IUserRepository
 
             ApplyPassword(local, passwordHash);
             return true;
+        }
+    }
+
+    internal static IReadOnlyList<User> GetInMemoryUsersSnapshot()
+    {
+        lock (InMemUsers)
+        {
+            return InMemUsers.ToList();
         }
     }
 
