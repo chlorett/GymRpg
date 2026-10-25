@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MyApp.Application.Interfaces;
+using MyApp.Application.Services;
 using MyApp.Domain.Enums;
 using MyApp.Infrastructure.Data;
 using MyApp.Infrastructure.Repositories;
@@ -38,6 +39,7 @@ public static class DependencyInjection
 
         // --- Софія: репозиторій шаблонів ---
         services.AddTransient<IWorkoutTemplateRepository, WorkoutTemplateRepository>();
+        services.AddScoped<IExerciseCatalogService, ExerciseCatalogService>();
 
         // --- Назар: репозиторії тренувань і прогресу ---
         services.AddTransient<IWorkoutRecordRepository, WorkoutRecordRepository>();

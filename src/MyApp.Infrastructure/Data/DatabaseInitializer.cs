@@ -21,7 +21,7 @@ public static class DatabaseInitializer
             logger.LogInformation("Ініціалізація бази даних PulseForge...");
             await db.Database.EnsureCreatedAsync();
 
-            await SeedExercisesAsync(db, logger);
+            await ExerciseSeedData.SeedAsync(db, logger);
             await SeedUsersAndProgressAsync(db, scope.ServiceProvider, logger);
 
             logger.LogInformation("Базу даних успішно ініціалізовано.");
@@ -32,28 +32,6 @@ public static class DatabaseInitializer
                 ex,
                 "Не вдалося з'єднатися з PostgreSQL. Застосунок автоматично використовуватиме вбудований автономний режим.");
         }
-    }
-
-    private static async Task SeedExercisesAsync(AppDbContext db, ILogger logger)
-    {
-        if (await db.Exercises.AnyAsync())
-        {
-            return;
-        }
-
-        logger.LogInformation("Засівання каталогу базових вправ...");
-        db.Exercises.AddRange(
-            new Exercise { Name = "Жим лежачи на лаві", Description = "Базова вправа для розвитку грудних м'язів, трицепсів та передньої дельти." },
-            new Exercise { Name = "Присідання зі штангою", Description = "Основна вправа для розвитку квадрицепсів, сідниць та м'язів кора." },
-            new Exercise { Name = "Станова тяга", Description = "Фундаментальна вправа для спини, біцепсів стегон та трапецій." },
-            new Exercise { Name = "Підтягування на перекладині", Description = "Вправа з власною вагою для найширших м'язів спини та біцепсів." },
-            new Exercise { Name = "Армійський жим", Description = "Жим штанги стоячи для розвитку плечового пояса та дельт." },
-            new Exercise { Name = "Віджимання на брусах", Description = "Вправа для нижньої частини грудей та трицепсів." },
-            new Exercise { Name = "Тяга штанги в нахилі", Description = "Вправа для товщини м'язів спини." },
-            new Exercise { Name = "Згинання рук зі штангою", Description = "Ізолююча вправа для біцепсів." },
-            new Exercise { Name = "Жим гантелей на похилій лаві", Description = "Вправа для верхньої частини грудей та передньої дельти." },
-            new Exercise { Name = "Румунська тяга", Description = "Вправа для біцепсів стегон та сідниць." });
-        await db.SaveChangesAsync();
     }
 
     private static async Task SeedUsersAndProgressAsync(

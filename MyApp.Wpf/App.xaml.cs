@@ -82,6 +82,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<CreateTemplateViewModel>();
         services.AddTransient<ProfileViewModel>();
         services.AddTransient<ProfileWindow>();
+        services.AddTransient<ExerciseCatalogViewModel>();
+        services.AddTransient<ExerciseCatalogWindow>();
     }
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
