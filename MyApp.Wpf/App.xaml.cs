@@ -66,12 +66,16 @@ public partial class App : System.Windows.Application
         services.AddTransient<LoginViewModel>();
         services.AddTransient<RegisterWindow>();
         services.AddTransient<RegisterViewModel>();
+        services.AddTransient<ChangePasswordWindow>();
+        services.AddTransient<ChangePasswordViewModel>();
 
         // --- Назар ---
         services.AddTransient<TrackWorkoutWindow>();
         services.AddTransient<TrackWorkoutViewModel>();
         services.AddTransient<UserProgressWindow>();
         services.AddTransient<UserProgressViewModel>();
+        services.AddTransient<LeaderboardWindow>();
+        services.AddTransient<LeaderboardViewModel>();
 
         // --- Софія ---
         services.AddTransient<CreateTemplateWindow>();

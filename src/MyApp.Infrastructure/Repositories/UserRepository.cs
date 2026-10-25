@@ -207,6 +207,42 @@ public sealed class UserRepository : IUserRepository
         }
     }
 
+    public async Task<bool> UpdatePasswordAsync(int userId, string passwordHash, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(passwordHash);
+
+        _logger.LogDebug("Updating password for user {UserId}", userId);
+
+        try
+        {
+            // Без AsNoTracking, щоб EF відстежив зміни
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+
+            if (user is not null)
+            {
+                ApplyPassword(user, passwordHash);
+                await _db.SaveChangesAsync(ct);
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка оновлення пароля {UserId} в БД, оновлюємо локальний список", userId);
+        }
+
+        lock (InMemUsers)
+        {
+            var local = InMemUsers.Find(u => u.Id == userId);
+            if (local is null)
+            {
+                return false;
+            }
+
+            ApplyPassword(local, passwordHash);
+            return true;
+        }
+    }
+
     private static void ApplyProfile(User user, decimal? weightKg, decimal? heightCm, DateOnly? birthDate)
     {
         if (weightKg is not null)
@@ -224,6 +260,12 @@ public sealed class UserRepository : IUserRepository
             user.BirthDate = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         }
 
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static void ApplyPassword(User user, string passwordHash)
+    {
+        user.PasswordHash = passwordHash;
         user.UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

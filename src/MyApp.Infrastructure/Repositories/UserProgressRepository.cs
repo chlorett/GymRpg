@@ -2,13 +2,32 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyApp.Application.Interfaces;
 using MyApp.Domain.Entities;
+using MyApp.Domain.Enums;
 using MyApp.Infrastructure.Data;
 
 namespace MyApp.Infrastructure.Repositories;
 
 public sealed class UserProgressRepository : IUserProgressRepository
 {
-    private static readonly Dictionary<long, UserProgress> InMemProgress = new();
+    private static readonly Dictionary<long, UserProgress> InMemProgress = new()
+    {
+        [101] = new UserProgress { UserId = 101, Level = 3, Xp = 2450, UpdatedAt = DateTimeOffset.UtcNow },
+        [102] = new UserProgress { UserId = 102, Level = 2, Xp = 1650, UpdatedAt = DateTimeOffset.UtcNow },
+        [103] = new UserProgress { UserId = 103, Level = 2, Xp = 1120, UpdatedAt = DateTimeOffset.UtcNow },
+        [104] = new UserProgress { UserId = 104, Level = 1, Xp = 480, UpdatedAt = DateTimeOffset.UtcNow },
+    };
+
+    private static readonly IReadOnlyList<(long Id, string Username, string Email, UserRole Role)> FallbackAthletes =
+        new List<(long, string, string, UserRole)>
+        {
+            (1, "athlete", "athlete@gym.com", UserRole.User),
+            (2, "coach_ivan", "trainer@gym.com", UserRole.Trainer),
+            (101, "iron_max", "max@gym.com", UserRole.User),
+            (102, "power_oleh", "oleh@gym.com", UserRole.User),
+            (103, "fit_maria", "maria@gym.com", UserRole.User),
+            (104, "rookie_artem", "artem@gym.com", UserRole.User),
+        };
+
     private readonly AppDbContext _db;
     private readonly ILogger<UserProgressRepository> _logger;
 
@@ -44,6 +63,30 @@ public sealed class UserProgressRepository : IUserProgressRepository
         }
     }
 
+    public async Task<IReadOnlyList<User>> GetLeaderboardUsersAsync(CancellationToken ct = default)
+    {
+        _logger.LogDebug("Loading leaderboard users with progress");
+
+        try
+        {
+            var dbUsers = await _db.Users
+                .AsNoTracking()
+                .Include(u => u.UserProgress)
+                .ToListAsync(ct);
+
+            if (dbUsers.Count > 0)
+            {
+                return dbUsers;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка завантаження лідерборду з БД, використовуємо резервні дані");
+        }
+
+        return BuildFallbackLeaderboardUsers();
+    }
+
     public async Task SaveAsync(UserProgress progress, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(progress);
@@ -67,10 +110,51 @@ public sealed class UserProgressRepository : IUserProgressRepository
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Помилка збереження прогресу в БД, зберігаємо в локальний кеш");
-            lock (InMemProgress)
+        }
+
+        lock (InMemProgress)
+        {
+            InMemProgress[progress.UserId] = progress;
+        }
+    }
+
+    private static List<User> BuildFallbackLeaderboardUsers()
+    {
+        lock (InMemProgress)
+        {
+            var result = new List<User>(FallbackAthletes.Count);
+            foreach (var item in FallbackAthletes)
             {
-                InMemProgress[progress.UserId] = progress;
+                InMemProgress.TryGetValue(item.Id, out var progress);
+                result.Add(new User
+                {
+                    Id = item.Id,
+                    Username = item.Username,
+                    Email = item.Email,
+                    Role = item.Role,
+                    UserProgress = progress ?? new UserProgress
+                    {
+                        UserId = item.Id,
+                        Level = 1,
+                        Xp = 0,
+                        UpdatedAt = DateTimeOffset.UtcNow,
+                    },
+                });
             }
+
+            foreach (var kvp in InMemProgress.Where(kvp => result.TrueForAll(u => u.Id != kvp.Key)))
+            {
+                result.Add(new User
+                {
+                    Id = kvp.Key,
+                    Username = $"athlete_{kvp.Key}",
+                    Email = $"user{kvp.Key}@gym.com",
+                    Role = UserRole.User,
+                    UserProgress = kvp.Value,
+                });
+            }
+
+            return result;
         }
     }
 }

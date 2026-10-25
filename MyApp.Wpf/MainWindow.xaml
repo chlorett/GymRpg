@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Style="{StaticResource AppWindow}"
-        Title="PulseForge" Height="532" Width="440"
+        Title="PulseForge" Height="600" Width="440"
         WindowStartupLocation="CenterScreen">
     <StackPanel Margin="24" VerticalAlignment="Center">
         <TextBlock Text="PulseForge" Style="{StaticResource FormTitle}" />
@@ -22,9 +22,13 @@
                 Style="{StaticResource PrimaryButton}" Click="OnExerciseCatalogClick" />
         <Button Content="Мій прогрес (RPG)" Margin="0,12,0,0"
                 Style="{StaticResource PrimaryButton}" Click="OnUserProgressClick" />
+        <Button Content="Лідерборд (Рейтинг)" Margin="0,12,0,0"
+                Style="{StaticResource PrimaryButton}" Click="OnLeaderboardClick" />
         <Button Content="Шаблон тренування" Margin="0,12,0,0"
                 Style="{StaticResource PrimaryButton}" Click="OnCreateTemplateClick" />
         <Button Content="Профіль" Margin="0,12,0,0"
                 Style="{StaticResource PrimaryButton}" Click="OnProfileClick" />
+        <Button Content="Змінити пароль" Margin="0,12,0,0"
+                Style="{StaticResource PrimaryButton}" Click="OnChangePasswordClick" />
     </StackPanel>
 </Window>
