@@ -1,6 +1,7 @@
-﻿using System.Globalization;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using MyApp.Application.Dtos;
 using MyApp.Application.Interfaces;
 using MyApp.Wpf.Services;
@@ -10,8 +11,8 @@ namespace MyApp.Wpf.ViewModels;
 public sealed partial class ProfileViewModel : ObservableObject
 {
     private readonly IUserProfileService _profiles;
-
     private readonly CurrentUserSession _userSession;
+    private readonly ILogger<ProfileViewModel> _logger;
 
     [ObservableProperty]
     private string _weightText = string.Empty;
@@ -37,10 +38,14 @@ public sealed partial class ProfileViewModel : ObservableObject
     [ObservableProperty]
     private string? _successMessage;
 
-    public ProfileViewModel(IUserProfileService profiles, CurrentUserSession userSession)
+    public ProfileViewModel(
+        IUserProfileService profiles,
+        CurrentUserSession userSession,
+        ILogger<ProfileViewModel> logger)
     {
         _profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
         _userSession = userSession ?? throw new ArgumentNullException(nameof(userSession));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task InitializeAsync()
@@ -48,6 +53,7 @@ public sealed partial class ProfileViewModel : ObservableObject
         var profile = await _profiles.GetAsync(_userSession.UserId);
         if (profile is null)
         {
+            _logger.LogWarning("Не вдалося завантажити профіль для користувача {UserId}", _userSession.UserId);
             GeneralError = "Не вдалося завантажити профіль.";
             return;
         }
@@ -84,12 +90,18 @@ public sealed partial class ProfileViewModel : ObservableObject
         if (!TryParseDecimal(WeightText, out var weight))
         {
             WeightError = "Введіть число.";
+            _logger.LogWarning(
+                "Помилка валідації профілю користувача {UserId}: некоректний формат ваги",
+                _userSession.UserId);
             return;
         }
 
         if (!TryParseDecimal(HeightText, out var height))
         {
             HeightError = "Введіть число.";
+            _logger.LogWarning(
+                "Помилка валідації профілю користувача {UserId}: некоректний формат зросту",
+                _userSession.UserId);
             return;
         }
 
@@ -104,6 +116,11 @@ public sealed partial class ProfileViewModel : ObservableObject
             return;
         }
 
+        _logger.LogWarning(
+            "Оновлення профілю користувача {UserId} відхилено: {ErrorCode}, поле {Field}",
+            _userSession.UserId,
+            result.ErrorCode,
+            result.Field);
         ShowError(result);
     }
 

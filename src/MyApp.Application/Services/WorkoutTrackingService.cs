@@ -37,6 +37,7 @@ public sealed class WorkoutTrackingService : IWorkoutTrackingService
     {
         if (request is null)
         {
+            _logger.LogWarning("Workout rejected: request is null");
             return Fail(ErrorCodes.ValidationFailed, nameof(request), "Запит не може бути порожнім.");
         }
 

@@ -117,18 +117,21 @@ public sealed class RegisterViewModel : ObservableObject
         if (!TryParseNumber(WeightKg, out var weight))
         {
             ErrorMessage = "Вкажіть вагу числом, наприклад 75.5.";
+            _logger.LogWarning("Помилка валідації форми реєстрації: некоректний формат ваги '{WeightKg}'", WeightKg);
             return null;
         }
 
         if (!TryParseNumber(HeightCm, out var height))
         {
             ErrorMessage = "Вкажіть зріст числом, наприклад 180.";
+            _logger.LogWarning("Помилка валідації форми реєстрації: некоректний формат зросту '{HeightCm}'", HeightCm);
             return null;
         }
 
         if (BirthDate is null)
         {
             ErrorMessage = "Оберіть дату народження.";
+            _logger.LogWarning("Помилка валідації форми реєстрації: не обрано дату народження");
             return null;
         }
 

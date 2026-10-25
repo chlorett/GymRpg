@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using MyApp.Application.Dtos;
 using MyApp.Application.Interfaces;
 using MyApp.Application.Rules;
@@ -25,12 +25,14 @@ public sealed class UserProfileService : IUserProfileService
     {
         if (userId <= 0)
         {
+            _logger.LogWarning("Profile load rejected: invalid userId {UserId}", userId);
             return null;
         }
 
         var user = await _users.GetByIdAsync(userId, ct);
         if (user is null)
         {
+            _logger.LogWarning("Profile load rejected: user {UserId} not found", userId);
             return null;
         }
 

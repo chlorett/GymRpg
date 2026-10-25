@@ -166,12 +166,16 @@ public partial class CreateTemplateViewModel : ObservableObject
         if (SelectedExercise is null)
         {
             ErrorMessage = "Оберіть вправу з каталогу.";
+            _logger.LogWarning("Помилка валідації шаблону тренування: не обрано вправу з каталогу");
             return;
         }
 
         if (TemplateExercises.Any(item => item.ExerciseId == SelectedExercise.Id))
         {
             ErrorMessage = "Ця вправа вже є в шаблоні.";
+            _logger.LogWarning(
+                "Помилка валідації шаблону тренування: спроба додати дублікат вправи {ExerciseId}",
+                SelectedExercise.Id);
             return;
         }
 
@@ -203,12 +207,14 @@ public partial class CreateTemplateViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(Name))
         {
             ErrorMessage = "Вкажіть назву шаблону.";
+            _logger.LogWarning("Помилка валідації шаблону тренування: порожня назва шаблону");
             return;
         }
 
         if (TemplateExercises.Count == 0)
         {
             ErrorMessage = "Додайте щонайменше одну вправу до шаблону.";
+            _logger.LogWarning("Помилка валідації шаблону тренування: список вправ порожній");
             return;
         }
 

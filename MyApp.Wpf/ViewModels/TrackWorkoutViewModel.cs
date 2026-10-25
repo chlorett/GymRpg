@@ -166,12 +166,14 @@ public class TrackWorkoutViewModel : ObservableObject
         if (SelectedExercise is null)
         {
             ErrorMessage = "Будь ласка, оберіть вправу.";
+            _logger.LogWarning("Помилка валідації тренування: не обрано вправу");
             return;
         }
 
         if (Sets.Count == 0)
         {
             ErrorMessage = "Додайте щонайменше один підхід.";
+            _logger.LogWarning("Помилка валідації тренування: список підходів порожній");
             return;
         }
 

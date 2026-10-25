@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using MyApp.Application.Dtos;
 using MyApp.Application.Interfaces;
 using MyApp.Application.Rules;
@@ -33,6 +33,7 @@ public sealed class WorkoutTemplateService : IWorkoutTemplateService
     {
         if (request is null)
         {
+            _logger.LogWarning("Workout template rejected: request is null");
             return Fail(ErrorCodes.ValidationFailed, nameof(request), "Запит не може бути порожнім.");
         }
 
