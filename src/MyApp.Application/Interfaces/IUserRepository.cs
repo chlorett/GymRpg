@@ -21,4 +21,7 @@ public interface IUserRepository
         decimal? heightCm,
         DateOnly? birthDate,
         CancellationToken ct = default);
+
+    // Оновлює лише хеш пароля й UpdatedAt. Повертає false, якщо користувача немає.
+    Task<bool> UpdatePasswordAsync(int userId, string passwordHash, CancellationToken ct = default);
 }
