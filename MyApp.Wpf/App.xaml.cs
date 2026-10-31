@@ -82,6 +82,8 @@ public partial class App : System.Windows.Application
         // --- Софія ---
         services.AddTransient<CreateTemplateWindow>();
         services.AddTransient<CreateTemplateViewModel>();
+        services.AddTransient<WorkoutTemplatesWindow>();
+        services.AddTransient<WorkoutTemplatesViewModel>();
         services.AddTransient<ProfileViewModel>();
         services.AddTransient<ProfileWindow>();
         services.AddTransient<ExerciseCatalogViewModel>();

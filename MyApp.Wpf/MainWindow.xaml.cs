@@ -51,6 +51,9 @@ public partial class MainWindow : Window
     private void OnCreateTemplateClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<CreateTemplateWindow>().Show();
 
+    private void OnManageTemplatesClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<WorkoutTemplatesWindow>().Show();
+
     private void OnProfileClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<ProfileWindow>().Show();
 

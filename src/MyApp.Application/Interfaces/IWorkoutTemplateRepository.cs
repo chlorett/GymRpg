@@ -8,4 +8,10 @@ public interface IWorkoutTemplateRepository
     Task<bool> ExistsByNameAsync(int trainerId, string name, CancellationToken ct = default);
 
     Task AddAsync(WorkoutTemplate template, CancellationToken ct = default);
+
+    Task<IReadOnlyList<WorkoutTemplate>> GetByUserIdAsync(int userId, CancellationToken ct = default);
+
+    Task<WorkoutTemplate?> GetByIdWithExercisesAsync(int templateId, CancellationToken ct = default);
+
+    Task DeleteAsync(int templateId, CancellationToken ct = default);
 }

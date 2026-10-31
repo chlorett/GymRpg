@@ -9,5 +9,7 @@ public static class ErrorCodes
     public const string NotATrainer = "NotATrainer";
     public const string ExerciseNotFound = "ExerciseNotFound";
     public const string TemplateNameTaken = "TemplateNameTaken";
+    public const string TemplateNotFound = "TemplateNotFound";
+    public const string TemplateAccessDenied = "TemplateAccessDenied";
     public const string InvalidCredentials = "InvalidCredentials";
 }
