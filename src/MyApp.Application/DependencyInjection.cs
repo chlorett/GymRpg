@@ -19,10 +19,11 @@ public static class DependencyInjection
         // --- Софія: профіль користувача ---
         services.AddScoped<IUserProfileService, UserProfileService>();
 
-        // --- Назар: відстеження тренувань, RPG-прогрес та лідерборд ---
+        // --- Назар: відстеження тренувань, RPG-прогрес, лідерборд та медалі ---
         services.AddTransient<Interfaces.IWorkoutTrackingService, Services.WorkoutTrackingService>();
         services.AddTransient<Interfaces.IUserProgressService, Services.UserProgressService>();
         services.AddTransient<Interfaces.ILeaderboardService, Services.LeaderboardService>();
+        services.AddTransient<Interfaces.IMedalService, Services.MedalService>();
         return services;
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using MyApp.Application.Interfaces;
 using MyApp.Domain.Entities;
 using MyApp.Domain.Enums;
+using MyApp.Infrastructure.Repositories;
 
 namespace MyApp.Infrastructure.Data;
 
@@ -22,6 +23,7 @@ public static class DatabaseInitializer
             await db.Database.EnsureCreatedAsync();
 
             await ExerciseSeedData.SeedAsync(db, logger);
+            await SeedMedalsAsync(db, logger);
             await SeedUsersAndProgressAsync(db, scope.ServiceProvider, logger);
 
             logger.LogInformation("Базу даних успішно ініціалізовано.");
@@ -32,6 +34,30 @@ public static class DatabaseInitializer
                 ex,
                 "Не вдалося з'єднатися з PostgreSQL. Застосунок автоматично використовуватиме вбудований автономний режим.");
         }
+    }
+
+    private static async Task SeedMedalsAsync(AppDbContext db, ILogger logger)
+    {
+        if (await db.Medals.AnyAsync())
+        {
+            return;
+        }
+
+        logger.LogInformation("Засівання довідника медалей та досягнень...");
+        foreach (var seed in MedalRepository.GetDefaultMedals())
+        {
+            db.Medals.Add(new Medal
+            {
+                Name = seed.Name,
+                Description = seed.Description,
+                ConditionType = seed.ConditionType,
+                ConditionValue = seed.ConditionValue,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        await db.SaveChangesAsync();
     }
 
     private static async Task SeedUsersAndProgressAsync(
