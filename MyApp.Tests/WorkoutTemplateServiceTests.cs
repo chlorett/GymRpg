@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
 using MyApp.Application.Dtos;
@@ -379,6 +379,180 @@ public class WorkoutTemplateServiceTests
         Assert.False(result.IsSuccess);
         VerifyLogged(LogLevel.Warning, Times.Once());
         VerifyLogged(LogLevel.Information, Times.Never());
+    }
+
+    [Fact]
+    public async Task GetUserTemplatesAsync_ReturnsSortedSummariesAndFiltersBySearchQuery()
+    {
+        // Arrange
+        var now = _timeProvider.GetUtcNow();
+        var templates = new List<WorkoutTemplate>
+        {
+            new()
+            {
+                Id = 1,
+                TrainerId = TrainerId,
+                Name = "Базовий жим і спина",
+                Description = "Верх тіла",
+                CreatedAt = now.AddDays(-2),
+                WorkoutTemplateExercises = new List<WorkoutTemplateExercise>
+                {
+                    new() { ExerciseId = 1, Position = 1, TargetSets = 4, TargetReps = 8 },
+                    new() { ExerciseId = 2, Position = 2, TargetSets = 3, TargetReps = 10 },
+                },
+            },
+            new()
+            {
+                Id = 2,
+                TrainerId = TrainerId,
+                Name = "День ніг та плечей",
+                Description = "Присідання та жим стоячи",
+                CreatedAt = now.AddDays(-1),
+                WorkoutTemplateExercises = new List<WorkoutTemplateExercise>
+                {
+                    new() { ExerciseId = 3, Position = 1, TargetSets = 5, TargetReps = 5 },
+                },
+            },
+        };
+
+        _templateRepositoryMock
+            .Setup(r => r.GetByUserIdAsync(TrainerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(templates);
+
+        // Act
+        var allResult = await _service.GetUserTemplatesAsync(TrainerId);
+        var filteredResult = await _service.GetUserTemplatesAsync(TrainerId, "  БАЗОВИЙ ");
+
+        // Assert
+        Assert.Equal(2, allResult.Count);
+        Assert.Equal("День ніг та плечей", allResult[0].Name);
+        Assert.Equal("Базовий жим і спина", allResult[1].Name);
+        Assert.Equal(2, allResult[1].ExercisesCount);
+        Assert.Equal(7, allResult[1].TotalSetsCount);
+        Assert.Equal(62, allResult[1].TotalVolumeReps);
+
+        Assert.Single(filteredResult);
+        Assert.Equal("Базовий жим і спина", filteredResult[0].Name);
+    }
+
+    [Fact]
+    public async Task GetTemplateDetailsAsync_OrdersExercisesByPositionAndComputesVolume()
+    {
+        // Arrange
+        var template = new WorkoutTemplate
+        {
+            Id = 5,
+            TrainerId = TrainerId,
+            Name = "Фулбоді",
+            Description = "Комплексна програма",
+            CreatedAt = _timeProvider.GetUtcNow(),
+            WorkoutTemplateExercises = new List<WorkoutTemplateExercise>
+            {
+                new()
+                {
+                    ExerciseId = 4,
+                    Position = 2,
+                    TargetSets = 3,
+                    TargetReps = 12,
+                    Exercise = new Exercise { Id = 4, Name = "Підтягування", EquipmentType = EquipmentType.Calisthenics },
+                },
+                new()
+                {
+                    ExerciseId = 1,
+                    Position = 1,
+                    TargetSets = 4,
+                    TargetReps = 8,
+                    Exercise = new Exercise { Id = 1, Name = "Жим лежачи", EquipmentType = EquipmentType.Gym },
+                },
+            },
+        };
+
+        _templateRepositoryMock
+            .Setup(r => r.GetByIdWithExercisesAsync(5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(template);
+
+        // Act
+        var details = await _service.GetTemplateDetailsAsync(templateId: 5, userId: TrainerId);
+
+        // Assert
+        Assert.NotNull(details);
+        Assert.Equal("Фулбоді", details.Name);
+        Assert.Equal(2, details.ExercisesCount);
+        Assert.Equal(7, details.TotalSetsCount);
+        Assert.Equal(68, details.TotalVolumeReps);
+        Assert.Equal(1, details.Exercises[0].Position);
+        Assert.Equal("Жим лежачи", details.Exercises[0].ExerciseName);
+        Assert.Equal("4 × 8", details.Exercises[0].SchemeText);
+        Assert.Equal(2, details.Exercises[1].Position);
+        Assert.Equal("Підтягування", details.Exercises[1].ExerciseName);
+    }
+
+    [Fact]
+    public async Task DeleteTemplateAsync_WhenOwnerDeletesOwnTemplate_ReturnsSuccess()
+    {
+        // Arrange
+        var template = new WorkoutTemplate
+        {
+            Id = 7,
+            TrainerId = TrainerId,
+            Name = "Старий шаблон",
+        };
+        _templateRepositoryMock
+            .Setup(r => r.GetByIdWithExercisesAsync(7, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(template);
+
+        // Act
+        var result = await _service.DeleteTemplateAsync(templateId: 7, userId: TrainerId);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        _templateRepositoryMock.Verify(
+            r => r.DeleteAsync(7, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteTemplateAsync_WhenTemplateDoesNotExist_ReturnsTemplateNotFoundError()
+    {
+        // Arrange
+        _templateRepositoryMock
+            .Setup(r => r.GetByIdWithExercisesAsync(99, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WorkoutTemplate?)null);
+
+        // Act
+        var result = await _service.DeleteTemplateAsync(templateId: 99, userId: TrainerId);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.TemplateNotFound, result.ErrorCode);
+        _templateRepositoryMock.Verify(
+            r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteTemplateAsync_WhenUserIsNotOwner_ReturnsTemplateAccessDeniedError()
+    {
+        // Arrange
+        var template = new WorkoutTemplate
+        {
+            Id = 8,
+            TrainerId = 2,
+            Name = "Чужий шаблон",
+        };
+        _templateRepositoryMock
+            .Setup(r => r.GetByIdWithExercisesAsync(8, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(template);
+
+        // Act
+        var result = await _service.DeleteTemplateAsync(templateId: 8, userId: TrainerId);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.TemplateAccessDenied, result.ErrorCode);
+        _templateRepositoryMock.Verify(
+            r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     private static CreateTemplateRequest CreateValidRequest()

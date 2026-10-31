@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using MyApp.Application.Dtos;
 using MyApp.Application.Interfaces;
@@ -28,6 +29,13 @@ public sealed class WorkoutTemplateService : IWorkoutTemplateService
         _time = time;
         _logger = logger;
     }
+
+    public static string GetEquipmentTypeLabel(EquipmentType? equipmentType) => equipmentType switch
+    {
+        EquipmentType.Gym => "Тренажерний зал",
+        EquipmentType.Calisthenics => "Власна вага (Калістеніка)",
+        _ => "Базовий інвентар",
+    };
 
     public async Task<OperationResult> CreateAsync(CreateTemplateRequest request, CancellationToken ct = default)
     {
@@ -83,6 +91,218 @@ public sealed class WorkoutTemplateService : IWorkoutTemplateService
             request.Exercises.Count);
 
         return OperationResult.Success();
+    }
+
+    public async Task<IReadOnlyList<WorkoutTemplateSummaryDto>> GetUserTemplatesAsync(
+        int userId,
+        string? searchQuery = null,
+        CancellationToken ct = default)
+    {
+        if (userId <= 0)
+        {
+            _logger.LogWarning(
+                "Workout templates requested with invalid userId: {UserId} [{ErrorCode}]",
+                userId,
+                ErrorCodes.ValidationFailed);
+            return Array.Empty<WorkoutTemplateSummaryDto>();
+        }
+
+        _logger.LogDebug(
+            "Loading workout templates for user {UserId} with searchQuery '{SearchQuery}'",
+            userId,
+            searchQuery ?? string.Empty);
+
+        var templates = await _templates.GetByUserIdAsync(userId, ct);
+        var summaries = templates
+            .OrderByDescending(t => t.CreatedAt)
+            .ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(MapToSummaryDto)
+            .ToList();
+
+        var filtered = ApplySearchFilter(summaries, searchQuery);
+
+        _logger.LogInformation(
+            "Workout templates loaded for user {UserId}: {TotalCount} total, {ShownCount} shown",
+            userId,
+            summaries.Count,
+            filtered.Count);
+
+        return filtered;
+    }
+
+    public async Task<WorkoutTemplateDetailsDto?> GetTemplateDetailsAsync(
+        int templateId,
+        int userId,
+        CancellationToken ct = default)
+    {
+        if (templateId <= 0 || userId <= 0)
+        {
+            _logger.LogWarning(
+                "Template details rejected: invalid templateId={TemplateId} or userId={UserId} [{ErrorCode}]",
+                templateId,
+                userId,
+                ErrorCodes.ValidationFailed);
+            return null;
+        }
+
+        var template = await _templates.GetByIdWithExercisesAsync(templateId, ct);
+        if (template is null)
+        {
+            _logger.LogWarning(
+                "Template details not found: templateId={TemplateId} for userId={UserId} [{ErrorCode}]",
+                templateId,
+                userId,
+                ErrorCodes.TemplateNotFound);
+            return null;
+        }
+
+        if (template.TrainerId != userId)
+        {
+            _logger.LogWarning(
+                "Template details access denied: templateId={TemplateId} belongs to {OwnerId}, requested by {UserId} [{ErrorCode}]",
+                templateId,
+                template.TrainerId,
+                userId,
+                ErrorCodes.TemplateAccessDenied);
+            return null;
+        }
+
+        var orderedExercises = template.WorkoutTemplateExercises
+            .OrderBy(e => e.Position)
+            .ToList();
+
+        var exerciseItems = new List<TemplateExerciseItemDto>(orderedExercises.Count);
+        foreach (var item in orderedExercises)
+        {
+            var exercise = item.Exercise ?? await _exercises.GetByIdAsync(item.ExerciseId, ct);
+            string exerciseName = exercise?.Name ?? $"Вправа #{item.ExerciseId}";
+            string equipmentText = GetEquipmentTypeLabel(exercise?.EquipmentType);
+            string schemeText = $"{item.TargetSets} × {item.TargetReps}";
+
+            exerciseItems.Add(new TemplateExerciseItemDto(
+                Position: item.Position,
+                ExerciseId: item.ExerciseId,
+                ExerciseName: exerciseName,
+                EquipmentTypeText: equipmentText,
+                TargetSets: item.TargetSets,
+                TargetReps: item.TargetReps,
+                SchemeText: schemeText));
+        }
+
+        int totalSets = exerciseItems.Sum(e => e.TargetSets);
+        int totalVolumeReps = exerciseItems.Sum(e => e.TargetSets * e.TargetReps);
+        string description = string.IsNullOrWhiteSpace(template.Description)
+            ? $"Тренувальна програма ({exerciseItems.Count} вправ, {totalSets} підходів)"
+            : template.Description;
+
+        _logger.LogInformation(
+            "Workout template details loaded: templateId={TemplateId}, exercises={ExerciseCount}",
+            templateId,
+            exerciseItems.Count);
+
+        return new WorkoutTemplateDetailsDto(
+            TemplateId: (int)template.Id,
+            TrainerId: (int)template.TrainerId,
+            Name: template.Name,
+            Description: description,
+            ExercisesCount: exerciseItems.Count,
+            TotalSetsCount: totalSets,
+            TotalVolumeReps: totalVolumeReps,
+            CreatedAt: template.CreatedAt,
+            CreatedAtText: template.CreatedAt.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
+            Exercises: exerciseItems);
+    }
+
+    public async Task<OperationResult> DeleteTemplateAsync(
+        int templateId,
+        int userId,
+        CancellationToken ct = default)
+    {
+        if (templateId <= 0)
+        {
+            var invalidTemplate = Fail(
+                ErrorCodes.ValidationFailed,
+                nameof(templateId),
+                "Оберіть шаблон тренування для видалення.");
+            return RejectDelete(invalidTemplate, templateId, userId);
+        }
+
+        if (userId <= 0)
+        {
+            var invalidUser = Fail(
+                ErrorCodes.ValidationFailed,
+                nameof(userId),
+                "Некоректний користувач.");
+            return RejectDelete(invalidUser, templateId, userId);
+        }
+
+        var template = await _templates.GetByIdWithExercisesAsync(templateId, ct);
+        if (template is null)
+        {
+            var notFound = Fail(
+                ErrorCodes.TemplateNotFound,
+                nameof(templateId),
+                "Шаблон тренування не знайдено.");
+            return RejectDelete(notFound, templateId, userId);
+        }
+
+        if (template.TrainerId != userId)
+        {
+            var accessDenied = Fail(
+                ErrorCodes.TemplateAccessDenied,
+                nameof(userId),
+                "Ви можете видаляти лише власні шаблони тренувань.");
+            return RejectDelete(accessDenied, templateId, userId);
+        }
+
+        await _templates.DeleteAsync(templateId, ct);
+
+        _logger.LogInformation(
+            "Workout template deleted: templateId={TemplateId}, name={Name}, trainerId={TrainerId}",
+            templateId,
+            template.Name,
+            userId);
+
+        return OperationResult.Success();
+    }
+
+    private static WorkoutTemplateSummaryDto MapToSummaryDto(WorkoutTemplate template)
+    {
+        var exercises = template.WorkoutTemplateExercises ?? Array.Empty<WorkoutTemplateExercise>();
+        int exercisesCount = exercises.Count;
+        int totalSets = exercises.Sum(e => (int)e.TargetSets);
+        int totalVolumeReps = exercises.Sum(e => e.TargetSets * e.TargetReps);
+        string description = string.IsNullOrWhiteSpace(template.Description)
+            ? $"Вправ: {exercisesCount} • Підходів: {totalSets}"
+            : template.Description;
+
+        return new WorkoutTemplateSummaryDto(
+            TemplateId: (int)template.Id,
+            TrainerId: (int)template.TrainerId,
+            Name: template.Name,
+            Description: description,
+            ExercisesCount: exercisesCount,
+            TotalSetsCount: totalSets,
+            TotalVolumeReps: totalVolumeReps,
+            CreatedAt: template.CreatedAt,
+            CreatedAtText: template.CreatedAt.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture));
+    }
+
+    private static IReadOnlyList<WorkoutTemplateSummaryDto> ApplySearchFilter(
+        List<WorkoutTemplateSummaryDto> templates,
+        string? searchQuery)
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            return templates;
+        }
+
+        string normalized = searchQuery.Trim();
+        return templates
+            .Where(t =>
+                t.Name.Contains(normalized, StringComparison.OrdinalIgnoreCase) ||
+                t.Description.Contains(normalized, StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 
     private static OperationResult? Validate(CreateTemplateRequest request)
@@ -194,6 +414,18 @@ public sealed class WorkoutTemplateService : IWorkoutTemplateService
         _logger.LogWarning(
             "Workout template rejected: trainer {TrainerId}, error {ErrorCode}, field {Field}",
             request.TrainerId,
+            result.ErrorCode,
+            result.Field);
+
+        return result;
+    }
+
+    private OperationResult RejectDelete(OperationResult result, int templateId, int userId)
+    {
+        _logger.LogWarning(
+            "Workout template deletion rejected: template {TemplateId}, user {UserId}, error {ErrorCode}, field {Field}",
+            templateId,
+            userId,
             result.ErrorCode,
             result.Field);
 
