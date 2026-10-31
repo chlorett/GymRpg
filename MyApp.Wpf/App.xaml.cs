@@ -76,6 +76,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<UserProgressViewModel>();
         services.AddTransient<LeaderboardWindow>();
         services.AddTransient<LeaderboardViewModel>();
+        services.AddTransient<MedalsWindow>();
+        services.AddTransient<MedalsViewModel>();
 
         // --- Софія ---
         services.AddTransient<CreateTemplateWindow>();
