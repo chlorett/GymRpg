@@ -7,7 +7,7 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=viewModels:LoginViewModel}"
         Style="{StaticResource AppWindow}"
-        Title="Вхід у систему — PulseForge" Height="420" Width="440"
+        Title="Вхід у систему — PulseForge" Height="432" Width="440"
         MinHeight="380" MinWidth="400"
         WindowStartupLocation="CenterScreen">
     <StackPanel Margin="24" VerticalAlignment="Center">

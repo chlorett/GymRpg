@@ -42,13 +42,14 @@
             <ComboBox ItemsSource="{Binding Exercises}"
                       SelectedItem="{Binding SelectedExercise}"
                       DisplayMemberPath="Name"
-                      Padding="8,6"
+                      Style="{StaticResource FieldComboBox}"
                       FontSize="14" />
         </StackPanel>
 
         <!-- Таблиця підходів -->
         <GroupBox Grid.Row="2" Header="Підходи (Sets)" Margin="0,0,0,12" Padding="8">
             <DataGrid ItemsSource="{Binding Sets}"
+                      Style="{StaticResource AppDataGrid}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
                       CanUserDeleteRows="False"

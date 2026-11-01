@@ -62,7 +62,7 @@
             <TextBlock Text="Дата народження" Style="{StaticResource FieldLabel}" />
             <DatePicker SelectedDate="{Binding BirthDate}"
                         Margin="0,4,0,16"
-                        Style="{StaticResource FieldInput}" />
+                        Style="{StaticResource AppDatePicker}" />
 
             <TextBlock Text="{Binding ErrorMessage}"
                        Foreground="Crimson"

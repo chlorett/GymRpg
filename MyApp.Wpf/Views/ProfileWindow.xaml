@@ -17,7 +17,7 @@
         <TextBlock Text="{Binding HeightError}" Foreground="Red" TextWrapping="Wrap" />
 
         <TextBlock Text="Дата народження" Margin="0,8,0,2" />
-        <DatePicker SelectedDate="{Binding BirthDate}" />
+        <DatePicker SelectedDate="{Binding BirthDate}" Style="{StaticResource AppDatePicker}"/>
         <TextBlock Text="{Binding BirthDateError}" Foreground="Red" TextWrapping="Wrap" />
 
         <TextBlock Text="{Binding GeneralError}" Foreground="Red" TextWrapping="Wrap" Margin="0,8,0,0" />

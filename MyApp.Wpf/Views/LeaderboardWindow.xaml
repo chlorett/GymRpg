@@ -128,19 +128,14 @@
                   Padding="8"
                   Margin="0,0,0,12">
             <DataGrid ItemsSource="{Binding Entries}"
-                      AutoGenerateColumns="False"
-                      IsReadOnly="True"
-                      CanUserAddRows="False"
-                      CanUserDeleteRows="False"
-                      HeadersVisibility="Column"
-                      GridLinesVisibility="Horizontal"
-                      RowHeaderWidth="0"
-                      FontSize="13"
-                      Background="{StaticResource SurfaceBrush}"
-                      BorderBrush="{StaticResource BorderBrushLight}"
-                      BorderThickness="1">
+          Style="{StaticResource AppDataGrid}"
+          AutoGenerateColumns="False"
+          IsReadOnly="True"
+          CanUserAddRows="False"
+          CanUserDeleteRows="False"
+          FontSize="13">
                 <DataGrid.RowStyle>
-                    <Style TargetType="DataGridRow">
+                    <Style TargetType="DataGridRow" BasedOn="{StaticResource AppDataGridRow}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsCurrentUser}" Value="True">
                                 <Setter Property="Background" Value="#FFF3EE" />
@@ -151,20 +146,20 @@
                 </DataGrid.RowStyle>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Місце"
-                                        Binding="{Binding Rank, StringFormat=#{0}}"
-                                        Width="75" />
+                            Binding="{Binding Rank, StringFormat=#{0}}"
+                            Width="75" />
                     <DataGridTextColumn Header="Атлет"
-                                        Binding="{Binding Username}"
-                                        Width="1.6*" />
+                            Binding="{Binding Username}"
+                            Width="1.6*" />
                     <DataGridTextColumn Header="Рівень"
-                                        Binding="{Binding Level, StringFormat=Рівень {0}}"
-                                        Width="100" />
+                            Binding="{Binding Level, StringFormat=Рівень {0}}"
+                            Width="100" />
                     <DataGridTextColumn Header="Ранг"
-                                        Binding="{Binding RankTitle}"
-                                        Width="1.4*" />
+                            Binding="{Binding RankTitle}"
+                            Width="1.4*" />
                     <DataGridTextColumn Header="Загальний XP"
-                                        Binding="{Binding TotalXp, StringFormat={}{0} XP}"
-                                        Width="130" />
+                            Binding="{Binding TotalXp, StringFormat={}{0} XP}"
+                            Width="130" />
                 </DataGrid.Columns>
             </DataGrid>
         </GroupBox>
