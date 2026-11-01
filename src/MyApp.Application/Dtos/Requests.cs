@@ -38,3 +38,9 @@ public sealed record UpdateProfileRequest(
     decimal? WeightKg,
     decimal? HeightCm,
     DateOnly? BirthDate);
+
+public sealed record UpdateAffiliationRequest(
+    int UserId,
+    string Username,
+    int? GymId,
+    int? DivisionId);

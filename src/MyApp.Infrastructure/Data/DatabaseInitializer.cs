@@ -24,6 +24,7 @@ public static class DatabaseInitializer
 
             await ExerciseSeedData.SeedAsync(db, logger);
             await SeedMedalsAsync(db, logger);
+            await SeedAffiliationAsync(db, logger);
             await SeedUsersAndProgressAsync(db, scope.ServiceProvider, logger);
 
             logger.LogInformation("Базу даних успішно ініціалізовано.");
@@ -33,6 +34,29 @@ public static class DatabaseInitializer
             logger.LogWarning(
                 ex,
                 "Не вдалося з'єднатися з PostgreSQL. Застосунок автоматично використовуватиме вбудований автономний режим.");
+        }
+    }
+
+    private static async Task SeedAffiliationAsync(AppDbContext db, ILogger logger)
+    {
+        if (!await db.Regions.AnyAsync())
+        {
+            logger.LogInformation("Засівання довідника регіонів і спортзалів...");
+            db.Regions.AddRange(AffiliationSeedData.CreateRegionGraph());
+            await db.SaveChangesAsync();
+        }
+
+        if (!await db.Divisions.AnyAsync())
+        {
+            logger.LogInformation("Засівання довідника дивізіонів...");
+
+            // Id призначає база (identity), тому беремо лише назви.
+            foreach (var division in AffiliationSeedData.CreateDivisions())
+            {
+                db.Divisions.Add(new Division { Name = division.Name });
+            }
+
+            await db.SaveChangesAsync();
         }
     }
 

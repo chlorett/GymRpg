@@ -12,4 +12,6 @@ public static class ErrorCodes
     public const string TemplateNotFound = "TemplateNotFound";
     public const string TemplateAccessDenied = "TemplateAccessDenied";
     public const string InvalidCredentials = "InvalidCredentials";
+    public const string GymNotFound = "GymNotFound";
+    public const string DivisionNotFound = "DivisionNotFound";
 }
