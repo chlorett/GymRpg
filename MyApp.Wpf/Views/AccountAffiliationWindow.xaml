@@ -72,20 +72,20 @@
             <ComboBox ItemsSource="{Binding Regions}"
                       SelectedItem="{Binding SelectedRegion}"
                       DisplayMemberPath="Name"
-                      Style="{StaticResource FieldInput}" />
+                      Style="{StaticResource FieldComboBox}" />
 
             <TextBlock Text="Спортзал" Style="{StaticResource FieldLabel}" />
             <ComboBox ItemsSource="{Binding AvailableGyms}"
                       SelectedItem="{Binding SelectedGym}"
                       DisplayMemberPath="Name"
-                      Style="{StaticResource FieldInput}" />
+                      Style="{StaticResource FieldComboBox}" />
             <TextBlock Text="{Binding GymError}" Style="{StaticResource CollapsedWhenEmpty}" />
 
             <TextBlock Text="Дивізіон" Style="{StaticResource FieldLabel}" />
             <ComboBox ItemsSource="{Binding Divisions}"
                       SelectedItem="{Binding SelectedDivision}"
                       DisplayMemberPath="Name"
-                      Style="{StaticResource FieldInput}" />
+                      Style="{StaticResource FieldComboBox}" />
             <TextBlock Text="{Binding DivisionError}" Style="{StaticResource CollapsedWhenEmpty}" />
 
             <TextBlock Text="{Binding GeneralError}"

@@ -28,7 +28,7 @@
             <ComboBox ItemsSource="{Binding Exercises}"
                       SelectedItem="{Binding SelectedExercise}"
                       DisplayMemberPath="Name"
-                      Style="{StaticResource FieldInput}" />
+                      Style="{StaticResource FieldComboBox}" />
 
             <Grid Margin="0,16,0,0">
                 <Grid.ColumnDefinitions>
