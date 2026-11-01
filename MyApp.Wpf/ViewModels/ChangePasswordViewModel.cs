@@ -137,7 +137,12 @@ public sealed class ChangePasswordViewModel : ObservableObject
             if (!result.IsSuccess)
             {
                 ShowError(result);
-                _logger.LogWarning("Зміну пароля відхилено: {ErrorCode}", result.ErrorCode);
+                _logger.LogWarning(
+                    "Зміну пароля відхилено для користувача {UserId}: [{ErrorCode}] поле {Field} — {Message}",
+                    _userSession.UserId,
+                    result.ErrorCode,
+                    result.Field,
+                    result.Message);
                 return;
             }
 

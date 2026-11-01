@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using MyApp.Application.Dtos;
 using MyApp.Application.Interfaces;
@@ -9,6 +9,8 @@ namespace MyApp.Application.Services;
 
 public sealed class ExerciseCatalogService : IExerciseCatalogService
 {
+    private const int MaxSearchQueryLength = 100;
+
     private static readonly StringComparer NameComparer =
         StringComparer.Create(new CultureInfo("uk-UA"), ignoreCase: true);
 
@@ -27,6 +29,25 @@ public sealed class ExerciseCatalogService : IExerciseCatalogService
         CancellationToken ct = default)
     {
         var query = searchQuery?.Trim();
+
+        if (query is { Length: > MaxSearchQueryLength })
+        {
+            this.logger.LogWarning(
+                "Помилка валідації пошукового запиту каталогу вправ [{ErrorCode}]: довжина запиту ({Length}) перевищує ліміт {MaxLength}",
+                ErrorCodes.ValidationFailed,
+                query.Length,
+                MaxSearchQueryLength);
+            return Array.Empty<ExerciseCatalogItemDto>();
+        }
+
+        if (equipmentType is { } eq && !Enum.IsDefined(eq))
+        {
+            this.logger.LogWarning(
+                "Помилка валідації фільтра каталогу вправ [{ErrorCode}]: невідомий тип обладнання {EquipmentType}",
+                ErrorCodes.ValidationFailed,
+                eq);
+            return Array.Empty<ExerciseCatalogItemDto>();
+        }
 
         this.logger.LogInformation(
             "Запит каталогу вправ: пошук '{SearchQuery}', обладнання {EquipmentType}",

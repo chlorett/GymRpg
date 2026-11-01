@@ -1,6 +1,7 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using MyApp.Application.Dtos;
 using MyApp.Application.Interfaces;
 using MyApp.Domain.Enums;
@@ -10,7 +11,10 @@ namespace MyApp.Wpf.ViewModels;
 /// <summary>ViewModel вікна «Каталог вправ».</summary>
 public sealed partial class ExerciseCatalogViewModel : ObservableObject
 {
+    private const int MaxSearchLength = 100;
+
     private readonly IExerciseCatalogService service;
+    private readonly ILogger<ExerciseCatalogViewModel>? logger;
 
     [ObservableProperty]
     private string searchText = string.Empty;
@@ -26,9 +30,13 @@ public sealed partial class ExerciseCatalogViewModel : ObservableObject
 
     /// <summary>Initializes a new instance of the <see cref="ExerciseCatalogViewModel"/> class.</summary>
     /// <param name="service">Сервіс каталогу вправ.</param>
-    public ExerciseCatalogViewModel(IExerciseCatalogService service)
+    /// <param name="logger">Логер для фіксації попереджень валідації.</param>
+    public ExerciseCatalogViewModel(
+        IExerciseCatalogService service,
+        ILogger<ExerciseCatalogViewModel>? logger = null)
     {
         this.service = service;
+        this.logger = logger;
         this.FilterOptions = new[]
         {
             new EquipmentFilterOption("Усі", null),
@@ -51,6 +59,13 @@ public sealed partial class ExerciseCatalogViewModel : ObservableObject
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task RefreshAsync(CancellationToken ct)
     {
+        if (this.SearchText.Trim().Length > MaxSearchLength)
+        {
+            this.logger?.LogWarning(
+                "Помилка валідації пошуку в каталозі вправ: довжина запиту перевищує {MaxLength} символів",
+                MaxSearchLength);
+        }
+
         var selectedId = this.SelectedExercise?.Id;
         var items = await this.service.GetExercisesAsync(this.SearchText, this.SelectedFilter.Value, ct);
 

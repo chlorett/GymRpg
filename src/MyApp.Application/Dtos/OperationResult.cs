@@ -4,6 +4,8 @@ public sealed record OperationResult
 {
     public bool IsSuccess { get; init; }
 
+    public bool IsFailure => !IsSuccess;
+
     public string? ErrorCode { get; init; }
 
     public string? Field { get; init; }

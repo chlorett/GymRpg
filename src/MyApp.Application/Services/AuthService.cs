@@ -34,6 +34,7 @@ public sealed class AuthService : IAuthService
     {
         if (request is null)
         {
+            _logger.LogWarning("Registration rejected: request is null");
             return Fail(ErrorCodes.ValidationFailed, nameof(request), "Запит не може бути порожнім.");
         }
 
@@ -193,6 +194,14 @@ public sealed class AuthService : IAuthService
 
     private static OperationResult? ValidateChangePassword(ChangePasswordRequest request)
     {
+        if (request.UserId <= 0)
+        {
+            return Fail(
+                ErrorCodes.ValidationFailed,
+                nameof(ChangePasswordRequest.UserId),
+                "Некоректний ідентифікатор користувача.");
+        }
+
         if (string.IsNullOrEmpty(request.CurrentPassword))
         {
             return Fail(

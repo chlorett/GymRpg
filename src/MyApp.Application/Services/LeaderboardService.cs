@@ -7,6 +7,8 @@ namespace MyApp.Application.Services;
 
 public sealed class LeaderboardService : ILeaderboardService
 {
+    private const int MaxSearchQueryLength = 50;
+
     private readonly IUserProgressRepository _progressRepository;
     private readonly ILogger<LeaderboardService> _logger;
 
@@ -34,7 +36,19 @@ public sealed class LeaderboardService : ILeaderboardService
     {
         if (currentUserId <= 0)
         {
-            _logger.LogWarning("Leaderboard requested with non-positive currentUserId: {UserId}", currentUserId);
+            _logger.LogWarning(
+                "Leaderboard validation warning [{ErrorCode}]: non-positive currentUserId {UserId}",
+                ErrorCodes.ValidationFailed,
+                currentUserId);
+        }
+
+        if (searchQuery is not null && searchQuery.Trim().Length > MaxSearchQueryLength)
+        {
+            _logger.LogWarning(
+                "Leaderboard search validation warning [{ErrorCode}]: searchQuery length ({Length}) exceeds maximum {MaxLength}",
+                ErrorCodes.ValidationFailed,
+                searchQuery.Trim().Length,
+                MaxSearchQueryLength);
         }
 
         _logger.LogDebug(

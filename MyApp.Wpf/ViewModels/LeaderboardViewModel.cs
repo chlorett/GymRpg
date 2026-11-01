@@ -10,6 +10,8 @@ namespace MyApp.Wpf.ViewModels;
 
 public sealed class LeaderboardViewModel : ObservableObject
 {
+    private const int MaxSearchLength = 50;
+
     private readonly ILeaderboardService _leaderboardService;
     private readonly CurrentUserSession _userSession;
     private readonly ILogger<LeaderboardViewModel> _logger;
@@ -129,6 +131,17 @@ public sealed class LeaderboardViewModel : ObservableObject
     public async Task LoadLeaderboardAsync()
     {
         ErrorMessage = null;
+
+        if (SearchQuery.Trim().Length > MaxSearchLength)
+        {
+            ErrorMessage = $"Пошуковий запит не може перевищувати {MaxSearchLength} символів.";
+            _logger.LogWarning(
+                "Помилка валідації пошуку в лідерборді: довжина запиту ({Length}) перевищує {MaxLength}",
+                SearchQuery.Trim().Length,
+                MaxSearchLength);
+            return;
+        }
+
         IsBusy = true;
 
         try

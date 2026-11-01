@@ -81,7 +81,11 @@ public sealed class LoginViewModel : ObservableObject
             if (!result.IsSuccess)
             {
                 ErrorMessage = result.Message ?? "Не вдалося увійти в систему.";
-                _logger.LogWarning("Вхід у систему відхилено: {ErrorCode}", result.ErrorCode);
+                _logger.LogWarning(
+                    "Вхід у систему відхилено: [{ErrorCode}] поле {Field} — {Message}",
+                    result.ErrorCode,
+                    result.Field,
+                    result.Message);
                 return;
             }
 
