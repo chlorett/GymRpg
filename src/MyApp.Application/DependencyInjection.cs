@@ -13,6 +13,9 @@ public static class DependencyInjection
         // --- Денис: реєстрація репозиторіїв і хешера ---
         services.AddTransient<Interfaces.IAuthService, Services.AuthService>();
 
+        // --- Денис: клубна приналежність ---
+        services.AddTransient<IAccountAffiliationService, AccountAffiliationService>();
+
         // --- Софія: шаблони тренувань ---
         services.AddTransient<IWorkoutTemplateService, WorkoutTemplateService>();
 

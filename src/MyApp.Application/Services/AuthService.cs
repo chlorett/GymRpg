@@ -157,28 +157,11 @@ public sealed class AuthService : IAuthService
 
     private static OperationResult? ValidateUsername(string username)
     {
-        if (username.Length is < AuthRules.MinUsernameLength or > AuthRules.MaxUsernameLength)
-        {
-            return Fail(
-                ErrorCodes.ValidationFailed,
-                nameof(RegisterRequest.Username),
-                $"Ім'я користувача має містити від {AuthRules.MinUsernameLength} до {AuthRules.MaxUsernameLength} символів.");
-        }
+        var error = UsernameRules.GetError(username);
 
-        if (!username.All(IsUsernameChar))
-        {
-            return Fail(
-                ErrorCodes.ValidationFailed,
-                nameof(RegisterRequest.Username),
-                "Ім'я користувача може містити лише латинські літери, цифри та підкреслення.");
-        }
-
-        return null;
-    }
-
-    private static bool IsUsernameChar(char symbol)
-    {
-        return char.IsAsciiLetterOrDigit(symbol) || symbol == '_';
+        return error is null
+            ? null
+            : Fail(ErrorCodes.ValidationFailed, nameof(RegisterRequest.Username), error);
     }
 
     private static OperationResult? ValidateEmail(string email)

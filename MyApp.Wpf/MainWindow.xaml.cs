@@ -59,4 +59,7 @@ public partial class MainWindow : Window
 
     private void OnChangePasswordClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<ChangePasswordWindow>().Show();
+
+    private void OnAffiliationClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<AccountAffiliationWindow>().Show();
 }

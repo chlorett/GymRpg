@@ -24,4 +24,21 @@ public interface IUserRepository
 
     // Оновлює лише хеш пароля й UpdatedAt. Повертає false, якщо користувача немає.
     Task<bool> UpdatePasswordAsync(int userId, string passwordHash, CancellationToken ct = default);
+
+    Task<IReadOnlyList<Region>> GetRegionsAsync(CancellationToken ct = default);
+
+    Task<IReadOnlyList<Gym>> GetGymsAsync(CancellationToken ct = default);
+
+    Task<IReadOnlyList<Division>> GetDivisionsAsync(CancellationToken ct = default);
+
+    // Кількість користувачів, закріплених за залом.
+    Task<int> CountByGymAsync(int gymId, CancellationToken ct = default);
+
+    // null у gymId / divisionId означає «без залу» / «без дивізіону». Повертає false, якщо користувача немає.
+    Task<bool> UpdateAffiliationAsync(
+        int userId,
+        string username,
+        int? gymId,
+        int? divisionId,
+        CancellationToken ct = default);
 }

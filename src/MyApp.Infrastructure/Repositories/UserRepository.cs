@@ -243,6 +243,118 @@ public sealed class UserRepository : IUserRepository
         }
     }
 
+    public async Task<IReadOnlyList<Region>> GetRegionsAsync(CancellationToken ct = default)
+    {
+        _logger.LogDebug("Loading regions");
+
+        try
+        {
+            return await _db.Regions.AsNoTracking().OrderBy(r => r.Id).ToListAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка зв'язку з БД при завантаженні регіонів, використовуємо довідник за замовчуванням");
+            return AffiliationSeedData.CreateFallbackRegions();
+        }
+    }
+
+    public async Task<IReadOnlyList<Gym>> GetGymsAsync(CancellationToken ct = default)
+    {
+        _logger.LogDebug("Loading gyms");
+
+        try
+        {
+            return await _db.Gyms.AsNoTracking().OrderBy(g => g.Id).ToListAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка зв'язку з БД при завантаженні спортзалів, використовуємо довідник за замовчуванням");
+            return AffiliationSeedData.CreateFallbackGyms();
+        }
+    }
+
+    public async Task<IReadOnlyList<Division>> GetDivisionsAsync(CancellationToken ct = default)
+    {
+        _logger.LogDebug("Loading divisions");
+
+        try
+        {
+            return await _db.Divisions.AsNoTracking().OrderBy(d => d.Id).ToListAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка зв'язку з БД при завантаженні дивізіонів, використовуємо довідник за замовчуванням");
+            return AffiliationSeedData.CreateDivisions();
+        }
+    }
+
+    public async Task<int> CountByGymAsync(int gymId, CancellationToken ct = default)
+    {
+        _logger.LogDebug("Counting users of gym {GymId}", gymId);
+
+        try
+        {
+            return await _db.Users.CountAsync(u => u.GymId == gymId, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка зв'язку з БД при підрахунку атлетів залу {GymId}, перевіряємо локальний список", gymId);
+        }
+
+        lock (InMemUsers)
+        {
+            return InMemUsers.Count(u => u.GymId == gymId);
+        }
+    }
+
+    public async Task<bool> UpdateAffiliationAsync(
+        int userId,
+        string username,
+        int? gymId,
+        int? divisionId,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(username);
+
+        _logger.LogDebug("Updating affiliation for user {UserId}", userId);
+
+        User? tracked = null;
+        try
+        {
+            // Без AsNoTracking, щоб EF відстежив зміни
+            tracked = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+
+            if (tracked is not null)
+            {
+                ApplyAffiliation(tracked, username, gymId, divisionId);
+                await _db.SaveChangesAsync(ct);
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка збереження приналежності {UserId} в БД, оновлюємо локальний список", userId);
+
+            // Щоб невдала зміна не залишилась у відстежуваному контексті й не ламала наступні збереження.
+            if (tracked is not null)
+            {
+                _db.Entry(tracked).State = EntityState.Detached;
+            }
+        }
+
+        lock (InMemUsers)
+        {
+            var local = InMemUsers.Find(u => u.Id == userId);
+            if (local is null)
+            {
+                return false;
+            }
+
+            ApplyAffiliation(local, username, gymId, divisionId);
+            return true;
+        }
+    }
+
     internal static IReadOnlyList<User> GetInMemoryUsersSnapshot()
     {
         lock (InMemUsers)
@@ -274,6 +386,14 @@ public sealed class UserRepository : IUserRepository
     private static void ApplyPassword(User user, string passwordHash)
     {
         user.PasswordHash = passwordHash;
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static void ApplyAffiliation(User user, string username, int? gymId, int? divisionId)
+    {
+        user.Username = username;
+        user.GymId = gymId;
+        user.DivisionId = divisionId;
         user.UpdatedAt = DateTimeOffset.UtcNow;
     }
 }
