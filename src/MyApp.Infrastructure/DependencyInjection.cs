@@ -41,10 +41,11 @@ public static class DependencyInjection
         services.AddTransient<IWorkoutTemplateRepository, WorkoutTemplateRepository>();
         services.AddScoped<IExerciseCatalogService, ExerciseCatalogService>();
 
-        // --- Назар: репозиторії тренувань, прогресу та медалей ---
+        // --- Назар: репозиторії тренувань, прогресу, медалей та м'язового навантаження ---
         services.AddTransient<IWorkoutRecordRepository, WorkoutRecordRepository>();
         services.AddTransient<IUserProgressRepository, UserProgressRepository>();
         services.AddTransient<IMedalRepository, MedalRepository>();
+        services.AddTransient<IMuscleLoadRepository, MuscleLoadRepository>();
 
         return services;
     }

@@ -80,6 +80,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<LeaderboardViewModel>();
         services.AddTransient<MedalsWindow>();
         services.AddTransient<MedalsViewModel>();
+        services.AddTransient<MuscleLoadWindow>();
+        services.AddTransient<MuscleLoadViewModel>();
 
         // --- Софія ---
         services.AddTransient<CreateTemplateWindow>();

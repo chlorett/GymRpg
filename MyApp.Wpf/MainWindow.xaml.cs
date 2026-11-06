@@ -48,6 +48,9 @@ public partial class MainWindow : Window
     private void OnMedalsClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<MedalsWindow>().Show();
 
+    private void OnMuscleLoadClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<MuscleLoadWindow>().Show();
+
     private void OnCreateTemplateClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<CreateTemplateWindow>().Show();
 
