@@ -1,0 +1,211 @@
+<Window x:Class="MyApp.Wpf.Views.MuscleLoadWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="clr-namespace:MyApp.Wpf.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=viewModels:MuscleLoadViewModel}"
+        Style="{StaticResource AppWindow}"
+        Title="Аналітика м'язів та баланс навантаження — PulseForge"
+        Height="660" Width="840"
+        MinHeight="540" MinWidth="700"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Аналітика м'язового навантаження"
+                       Style="{StaticResource FormTitle}"
+                       Margin="0" />
+            <TextBlock Text="Контролюйте розподіл тренувального обсягу за групами м'язів та підтримуйте гармонійний розвиток тіла"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       FontSize="13"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Картка зведеної аналітики -->
+        <Border Grid.Row="1"
+                Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource AccentBrush}"
+                BorderThickness="1.5"
+                CornerRadius="8"
+                Padding="16,12"
+                Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Background="#FFF3EE"
+                        BorderBrush="{StaticResource AccentBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="14,8"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ActiveGroupsBadge}"
+                               FontSize="20"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource AccentBrush}"
+                               HorizontalAlignment="Center" />
+                </Border>
+
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding SummaryHeaderText}"
+                               FontSize="15"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="{Binding SummaryDetailsText}"
+                               FontSize="13"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,3,0,0" />
+                </StackPanel>
+
+                <Button Grid.Column="3"
+                        Content="Перерахувати навантаження"
+                        Command="{Binding RecalculateCommand}"
+                        Style="{StaticResource PrimaryButton}"
+                        Padding="16,8"
+                        VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <!-- Панель фільтрації -->
+        <Grid Grid.Row="2" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="Фільтр груп м'язів:"
+                       VerticalAlignment="Center"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource TextPrimaryBrush}" />
+
+            <ComboBox Grid.Column="2"
+                      ItemsSource="{Binding StatusFilterOptions}"
+                      SelectedItem="{Binding SelectedStatusFilter}"
+                      Style="{StaticResource FieldComboBox}"
+                      VerticalContentAlignment="Center" />
+
+            <Button Grid.Column="4"
+                    Content="Оновити дані"
+                    Command="{Binding LoadOverviewCommand}"
+                    Padding="14,8"
+                    Style="{StaticResource SecondaryButton}" />
+        </Grid>
+
+        <!-- Таблиця розподілу м'язового навантаження -->
+        <GroupBox Grid.Row="3"
+                  Header="Розподіл навантаження по групах м'язів"
+                  Padding="8"
+                  Margin="0,0,0,12">
+            <DataGrid ItemsSource="{Binding MuscleGroups}"
+                      Style="{StaticResource AppDataGrid}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      RowHeaderWidth="0"
+                      FontSize="13"
+                      Background="{StaticResource SurfaceBrush}"
+                      BorderBrush="{StaticResource BorderBrushLight}"
+                      BorderThickness="1">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Група м'язів"
+                                        Binding="{Binding MuscleGroupName}"
+                                        Width="1.6*" />
+                    <DataGridTextColumn Header="Вправ у каталозі"
+                                        Binding="{Binding ExercisesCount}"
+                                        Width="130" />
+                    <DataGridTextColumn Header="Обсяг та частка"
+                                        Binding="{Binding LoadText}"
+                                        Width="150" />
+                    <DataGridTemplateColumn Header="Частка у балансі" Width="170">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ProgressBar Minimum="0"
+                                             Maximum="100"
+                                             Value="{Binding SharePercent, Mode=OneWay}"
+                                             Height="12"
+                                             Margin="8,4"
+                                             Foreground="{StaticResource AccentBrush}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Статус балансу"
+                                        Binding="{Binding StatusText}"
+                                        Width="165" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <!-- Повідомлення про статус / помилку -->
+        <StackPanel Grid.Row="4" Margin="0,0,0,10">
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="#2F855A"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,4">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                            <Trigger Property="Text" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+
+            <TextBlock Text="{Binding ErrorMessage}"
+                       Foreground="{StaticResource ErrorBrush}"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                            <Trigger Property="Text" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Кнопки дій -->
+        <StackPanel Grid.Row="5"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button Content="Закрити"
+                    Click="OnCloseClick"
+                    Style="{StaticResource PrimaryButton}"
+                    Padding="20,8" />
+        </StackPanel>
+    </Grid>
+</Window>

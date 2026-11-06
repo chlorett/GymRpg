@@ -206,6 +206,7 @@ public static class DatabaseInitializer
             await EnsureSchemaAndTablesAsync(db);
 
             await ExerciseSeedData.SeedAsync(db, logger);
+            await SeedMuscleGroupsAsync(db, logger);
             await SeedMedalsAsync(db, logger);
             await SeedAffiliationAsync(db, logger);
             await SeedUsersAndProgressAsync(db, scope.ServiceProvider, logger);
@@ -261,6 +262,47 @@ public static class DatabaseInitializer
             }
 
             await db.SaveChangesAsync();
+        }
+    }
+
+    private static async Task SeedMuscleGroupsAsync(AppDbContext db, ILogger logger)
+    {
+        if (!await db.MuscleGroups.AnyAsync())
+        {
+            logger.LogInformation("Засівання довідника груп м'язів...");
+            foreach (var group in MuscleLoadRepository.GetDefaultMuscleGroups())
+            {
+                db.MuscleGroups.Add(new MuscleGroup { Name = group.Name });
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        if (!await db.ExerciseMuscleGroups.AnyAsync())
+        {
+            var groupIds = await db.MuscleGroups.OrderBy(g => g.Id).Select(g => g.Id).ToListAsync();
+            var exerciseIds = await db.Exercises.OrderBy(e => e.Id).Select(e => e.Id).ToListAsync();
+
+            if (groupIds.Count > 0 && exerciseIds.Count > 0)
+            {
+                logger.LogInformation("Засівання матриці навантаження м'язів для вправ...");
+                foreach (var link in MuscleLoadRepository.GetDefaultExerciseMuscleGroups())
+                {
+                    int exIdx = link.ExerciseId - 1;
+                    int grpIdx = link.MuscleGroupId - 1;
+                    if (exIdx >= 0 && exIdx < exerciseIds.Count && grpIdx >= 0 && grpIdx < groupIds.Count)
+                    {
+                        db.ExerciseMuscleGroups.Add(new ExerciseMuscleGroup
+                        {
+                            ExerciseId = exerciseIds[exIdx],
+                            MuscleGroupId = groupIds[grpIdx],
+                            LoadFactor = link.LoadFactor,
+                        });
+                    }
+                }
+
+                await db.SaveChangesAsync();
+            }
         }
     }
 
