@@ -1,3 +1,5 @@
+using MyApp.Domain.Enums;
+
 namespace MyApp.Application.Dtos;
 
 public sealed record RegisterRequest(
@@ -44,3 +46,9 @@ public sealed record UpdateAffiliationRequest(
     string Username,
     int? GymId,
     int? DivisionId);
+
+public sealed record ScheduleWorkoutSessionRequest(
+    int UserId, int TemplateId, string Name, DateTime ScheduledDate);
+
+public sealed record UpdateSessionStatusRequest(
+    int UserId, int SessionId, SessionStatus NewStatus);

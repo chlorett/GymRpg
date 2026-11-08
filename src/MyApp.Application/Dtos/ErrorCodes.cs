@@ -14,4 +14,7 @@ public static class ErrorCodes
     public const string InvalidCredentials = "InvalidCredentials";
     public const string GymNotFound = "GymNotFound";
     public const string DivisionNotFound = "DivisionNotFound";
+    public const string SessionNotFound = "SessionNotFound";
+    public const string SessionAccessDenied = "SessionAccessDenied";
+    public const string InvalidSessionStatusTransition = "InvalidSessionStatusTransition";
 }

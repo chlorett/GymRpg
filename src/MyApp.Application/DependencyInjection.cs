@@ -16,11 +16,11 @@ public static class DependencyInjection
         // --- Денис: клубна приналежність ---
         services.AddTransient<IAccountAffiliationService, AccountAffiliationService>();
 
-        // --- Софія: шаблони тренувань ---
+        // --- Софія: шаблони тренувань, профіль користувача ---
         services.AddTransient<IWorkoutTemplateService, WorkoutTemplateService>();
-
-        // --- Софія: профіль користувача ---
         services.AddScoped<IUserProfileService, UserProfileService>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IWorkoutSessionService, WorkoutSessionService>();
 
         // --- Назар: відстеження тренувань, RPG-прогрес, лідерборд, медалі та аналітика м'язів ---
         services.AddTransient<Interfaces.IWorkoutTrackingService, Services.WorkoutTrackingService>();

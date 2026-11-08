@@ -1,0 +1,208 @@
+<Window x:Class="MyApp.Wpf.Views.WorkoutSessionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="clr-namespace:MyApp.Wpf.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=viewModels:WorkoutSessionsViewModel}"
+        Style="{StaticResource AppWindow}"
+        Title="Розклад тренувань — PulseForge"
+        Height="680" Width="940"
+        MinHeight="560" MinWidth="820"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Розклад тренувань (Workout Schedule)"
+                       Style="{StaticResource FormTitle}"
+                       Margin="0" />
+            <TextBlock Text="Плануйте тренування на основі шаблонів і відстежуйте їхній статус"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       FontSize="13"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Планування нового тренування -->
+        <GroupBox Grid.Row="1"
+                  Header="Нове тренування"
+                  Padding="12"
+                  Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.4*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="1.4*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <ComboBox Grid.Column="0"
+                          Style="{StaticResource FieldComboBox}"
+                          ItemsSource="{Binding Templates}"
+                          DisplayMemberPath="Name"
+                          SelectedItem="{Binding SelectedTemplate}"
+                          VerticalContentAlignment="Center"
+                          ToolTip="Оберіть шаблон тренування" />
+
+                <DatePicker Grid.Column="2"
+                            Style="{StaticResource AppDatePicker}"
+                            SelectedDate="{Binding ScheduledDate}"
+                            VerticalContentAlignment="Center"
+                            ToolTip="Дата тренування" />
+
+                <TextBox Grid.Column="4"
+                         Text="{Binding WorkoutName, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource FieldInput}"
+                         VerticalContentAlignment="Center"
+                         ToolTip="Назва тренування" />
+
+                <Button Grid.Column="6"
+                        Content="Запланувати тренування"
+                        Command="{Binding ScheduleCommand}"
+                        IsDefault="True"
+                        Padding="16,8"
+                        Style="{StaticResource PrimaryButton}" />
+            </Grid>
+        </GroupBox>
+
+        <!-- Фільтр за статусом -->
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    Margin="0,0,0,12">
+            <TextBlock Text="Статус:"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       FontSize="13"
+                       VerticalAlignment="Center"
+                       Margin="0,0,10,0" />
+            <ComboBox Width="190"
+                      ItemsSource="{Binding StatusFilters}"
+                      DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedFilter}"
+                      VerticalContentAlignment="Center" />
+        </StackPanel>
+
+        <!-- Таблиця розкладу -->
+        <GroupBox Grid.Row="3"
+                  Header="Мої заплановані тренування"
+                  Padding="8"
+                  Margin="0,0,0,12">
+            <DataGrid ItemsSource="{Binding Sessions}"
+                      Style="{StaticResource AppDataGrid}"
+                      SelectedItem="{Binding SelectedSession, Mode=TwoWay}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      SelectionMode="Single"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      RowHeaderWidth="0"
+                      FontSize="13"
+                      Background="{StaticResource SurfaceBrush}"
+                      BorderBrush="{StaticResource BorderBrushLight}"
+                      BorderThickness="1">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Дата"
+                                        Binding="{Binding ScheduledDate, StringFormat=dd.MM.yyyy}"
+                                        Width="110" />
+                    <DataGridTextColumn Header="Тренування"
+                                        Binding="{Binding WorkoutName}"
+                                        Width="1.8*" />
+                    <DataGridTextColumn Header="Вправ"
+                                        Binding="{Binding ExercisesCount}"
+                                        Width="70" />
+                    <DataGridTextColumn Header="Статус"
+                                        Binding="{Binding StatusText}"
+                                        Width="130" />
+                    <DataGridTextColumn Header="Виконано"
+                                        Binding="{Binding CompletedAt, StringFormat=dd.MM.yyyy HH:mm}"
+                                        Width="1.1*" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <!-- Повідомлення про статус / помилку -->
+        <StackPanel Grid.Row="4" Margin="0,0,0,10">
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="#2F855A"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,4">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                            <Trigger Property="Text" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+
+            <TextBlock Text="{Binding ErrorMessage}"
+                       Foreground="{StaticResource ErrorBrush}"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                            <Trigger Property="Text" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Кнопки швидкої зміни статусу -->
+        <Grid Grid.Row="5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal">
+                <Button Content="Позначити виконаним"
+                        Command="{Binding MarkCompletedCommand}"
+                        Style="{StaticResource PrimaryButton}"
+                        Padding="16,8"
+                        Margin="0,0,10,0" />
+                <Button Content="Пропустити"
+                        Command="{Binding SkipCommand}"
+                        Style="{StaticResource SecondaryButton}"
+                        Padding="16,8"
+                        Margin="0,0,10,0" />
+                <Button Content="Скасувати"
+                        Command="{Binding CancelCommand}"
+                        Style="{StaticResource SecondaryButton}"
+                        Padding="16,8" />
+            </StackPanel>
+
+            <Button Grid.Column="1"
+                    Content="Закрити"
+                    Click="OnCloseClick"
+                    Style="{StaticResource PrimaryButton}"
+                    Padding="20,8" />
+        </Grid>
+    </Grid>
+</Window>

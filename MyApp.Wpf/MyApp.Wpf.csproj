@@ -11,6 +11,7 @@
   <ItemGroup>
     <None Remove="Fonts\ScienceGothicRegular.ttf" />
     <None Remove="Resources\Icon\logo.png" />
+    <None Remove="Views\WorkoutSessionsWindow.xalm" />
   </ItemGroup>
 
   <ItemGroup>

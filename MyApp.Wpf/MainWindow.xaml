@@ -90,6 +90,8 @@
                                     Click="OnCreateTemplateClick" />
                             <Button Content="Мої шаблони тренувань" Style="{StaticResource MenuItemButton}"
                                     Click="OnManageTemplatesClick" />
+                            <Button Content="Розклад тренувань" Style="{StaticResource MenuItemButton}"
+                                    Click="OnWorkoutSessionsClick" />
                         </StackPanel>
                     </Border>
 
