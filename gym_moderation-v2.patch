@@ -1,0 +1,777 @@
+diff --git a/MyApp.Application/DTOs/Moderation/GymRosterMemberDto.cs b/MyApp.Application/DTOs/Moderation/GymRosterMemberDto.cs
+new file mode 100644
+--- /dev/null
++++ b/MyApp.Application/DTOs/Moderation/GymRosterMemberDto.cs
+@@ -0,0 +1,25 @@
++using System;
++
++namespace MyApp.Application.DTOs.Moderation
++{
++    public class GymRosterMemberDto
++    {
++        public int UserId { get; set; }
++        public string Nickname { get; set; } = string.Empty;
++        public string Role { get; set; } = "User";
++        public int? GymId { get; set; }
++        public string GymName { get; set; } = "Не обрано";
++        public int? DivisionId { get; set; }
++        public string DivisionName { get; set; } = "Не обрано";
++        public int Level { get; set; }
++        public int Xp { get; set; }
++        public int SuspiciousWorkoutsCount { get; set; }
++        public bool IsExcludedFromLeaderboard { get; set; }
++        public bool IsBlocked { get; set; }
++        public DateTimeOffset? BlockedAt { get; set; }
++
++        public string LeaderboardStatusText => IsBlocked
++            ? "Заблокований"
++            : (IsExcludedFromLeaderboard ? "Прихований з рейтингу" : "Активний у рейтингу");
++    }
++}
+diff --git a/MyApp.Application/DTOs/Moderation/GymRosterOverviewDto.cs b/MyApp.Application/DTOs/Moderation/GymRosterOverviewDto.cs
+new file mode 100644
+--- /dev/null
++++ b/MyApp.Application/DTOs/Moderation/GymRosterOverviewDto.cs
+@@ -0,0 +1,13 @@
++using System.Collections.Generic;
++
++namespace MyApp.Application.DTOs.Moderation
++{
++    public class GymRosterOverviewDto
++    {
++        public int TotalAthletes { get; set; }
++        public int ActiveInLeaderboard { get; set; }
++        public int ExcludedFromLeaderboard { get; set; }
++        public int BlockedAthletes { get; set; }
++        public IReadOnlyList<GymRosterMemberDto> Members { get; set; } = new List<GymRosterMemberDto>();
++    }
++}
+diff --git a/MyApp.Application/DTOs/Moderation/UpdateAthleteModerationRequest.cs b/MyApp.Application/DTOs/Moderation/UpdateAthleteModerationRequest.cs
+new file mode 100644
+--- /dev/null
++++ b/MyApp.Application/DTOs/Moderation/UpdateAthleteModerationRequest.cs
+@@ -0,0 +1,10 @@
++namespace MyApp.Application.DTOs.Moderation
++{
++    public class UpdateAthleteModerationRequest
++    {
++        public int ModeratorId { get; set; }
++        public int TargetUserId { get; set; }
++        public bool IsExcludedFromLeaderboard { get; set; }
++        public bool IsBlocked { get; set; }
++    }
++}
+diff --git a/MyApp.Application/Interfaces/IGymModerationService.cs b/MyApp.Application/Interfaces/IGymModerationService.cs
+new file mode 100644
+--- /dev/null
++++ b/MyApp.Application/Interfaces/IGymModerationService.cs
+@@ -0,0 +1,12 @@
++using System.Threading.Tasks;
++using MyApp.Application.Common;
++using MyApp.Application.DTOs.Moderation;
++
++namespace MyApp.Application.Interfaces
++{
++    public interface IGymModerationService
++    {
++        Task<OperationResult<GymRosterOverviewDto>> GetGymRosterAsync(int? gymId, int? divisionId, string? searchQuery);
++        Task<OperationResult<bool>> UpdateModerationStatusAsync(UpdateAthleteModerationRequest request);
++    }
++}
+diff --git a/MyApp.Application/Services/GymModerationService.cs b/MyApp.Application/Services/GymModerationService.cs
+new file mode 100644
+--- /dev/null
++++ b/MyApp.Application/Services/GymModerationService.cs
+@@ -0,0 +1,148 @@
++using System;
++using System.Linq;
++using System.Threading.Tasks;
++using Microsoft.Extensions.Logging;
++using MyApp.Application.Common;
++using MyApp.Application.DTOs.Moderation;
++using MyApp.Application.Interfaces;
++
++namespace MyApp.Application.Services
++{
++    public class GymModerationService : IGymModerationService
++    {
++        private readonly IUserRepository _userRepository;
++        private readonly ILogger<GymModerationService> _logger;
++
++        public GymModerationService(
++            IUserRepository userRepository,
++            ILogger<GymModerationService> logger)
++        {
++            _userRepository = userRepository;
++            _logger = logger;
++        }
++
++        public async Task<OperationResult<GymRosterOverviewDto>> GetGymRosterAsync(
++            int? gymId,
++            int? divisionId,
++            string? searchQuery)
++        {
++            var roster = await _userRepository.GetGymRosterAsync(gymId, divisionId);
++
++            var athletesOnly = roster
++                .Where(u => string.Equals(u.Role, "User", StringComparison.OrdinalIgnoreCase))
++                .ToList();
++
++            if (!string.IsNullOrWhiteSpace(searchQuery))
++            {
++                var query = searchQuery.Trim();
++                athletesOnly = athletesOnly
++                    .Where(u => u.Nickname != null && u.Nickname.Contains(query, StringComparison.OrdinalIgnoreCase))
++                    .ToList();
++            }
++
++            var overview = new GymRosterOverviewDto
++            {
++                TotalAthletes = athletesOnly.Count,
++                ActiveInLeaderboard = athletesOnly.Count(u => !u.IsExcludedFromLeaderboard && !u.IsBlocked),
++                ExcludedFromLeaderboard = athletesOnly.Count(u => u.IsExcludedFromLeaderboard || u.IsBlocked),
++                BlockedAthletes = athletesOnly.Count(u => u.IsBlocked),
++                Members = athletesOnly
++                    .OrderByDescending(u => u.Xp)
++                    .ThenBy(u => u.Nickname)
++                    .ToList()
++            };
++
++            return OperationResult<GymRosterOverviewDto>.Success(overview);
++        }
++
++        public async Task<OperationResult<bool>> UpdateModerationStatusAsync(UpdateAthleteModerationRequest request)
++        {
++            if (request == null)
++            {
++                _logger.LogWarning(
++                    "Moderation validation failed: Request is null. ModeratorId={ModeratorId}, TargetUserId={TargetUserId}, ErrorCode={ErrorCode}, Field={Field}",
++                    0, 0, ErrorCodes.ValidationFailed, nameof(request));
++                return OperationResult<bool>.Failure(ErrorCodes.ValidationFailed, "Запит не може бути порожнім.", nameof(request));
++            }
++
++            if (request.ModeratorId <= 0)
++            {
++                _logger.LogWarning(
++                    "Moderation validation failed: Invalid ModeratorId. ModeratorId={ModeratorId}, TargetUserId={TargetUserId}, ErrorCode={ErrorCode}, Field={Field}",
++                    request.ModeratorId, request.TargetUserId, ErrorCodes.ValidationFailed, nameof(request.ModeratorId));
++                return OperationResult<bool>.Failure(ErrorCodes.ValidationFailed, "Некоректний ідентифікатор модератора.", nameof(request.ModeratorId));
++            }
++
++            if (request.TargetUserId <= 0)
++            {
++                _logger.LogWarning(
++                    "Moderation validation failed: Invalid TargetUserId. ModeratorId={ModeratorId}, TargetUserId={TargetUserId}, ErrorCode={ErrorCode}, Field={Field}",
++                    request.ModeratorId, request.TargetUserId, ErrorCodes.ValidationFailed, nameof(request.TargetUserId));
++                return OperationResult<bool>.Failure(ErrorCodes.ValidationFailed, "Некоректний ідентифікатор цільового користувача.", nameof(request.TargetUserId));
++            }
++
++            if (request.ModeratorId == request.TargetUserId)
++            {
++                _logger.LogWarning(
++                    "Moderation denied: Moderator attempted self-moderation. ModeratorId={ModeratorId}, TargetUserId={TargetUserId}, ErrorCode={ErrorCode}, Field={Field}",
++                    request.ModeratorId, request.TargetUserId, ErrorCodes.CannotModerateSelf, nameof(request.TargetUserId));
++                return OperationResult<bool>.Failure(ErrorCodes.CannotModerateSelf, "Ви не можете модерувати або блокувати власний обліковий запис.", nameof(request.TargetUserId));
++            }
++
++            var moderator = await _userRepository.GetByIdAsync(request.ModeratorId);
++            if (moderator == null || !IsTrainerOrAdmin(moderator.Role))
++            {
++                _logger.LogWarning(
++                    "Moderation denied: Moderator lacks required role. ModeratorId={ModeratorId}, TargetUserId={TargetUserId}, ErrorCode={ErrorCode}, Field={Field}",
++                    request.ModeratorId, request.TargetUserId, ErrorCodes.ModerationAccessDenied, nameof(request.ModeratorId));
++                return OperationResult<bool>.Failure(ErrorCodes.ModerationAccessDenied, "Доступ заборонено. Модерація дозволена лише тренерам та адміністраторам.", nameof(request.ModeratorId));
++            }
++
++            var targetUser = await _userRepository.GetByIdAsync(request.TargetUserId);
++            if (targetUser == null)
++            {
++                _logger.LogWarning(
++                    "Moderation failed: Target user not found. ModeratorId={ModeratorId}, TargetUserId={TargetUserId}, ErrorCode={ErrorCode}, Field={Field}",
++                    request.ModeratorId, request.TargetUserId, ErrorCodes.UserNotFound, nameof(request.TargetUserId));
++                return OperationResult<bool>.Failure(ErrorCodes.UserNotFound, "Цільового користувача не знайдено.", nameof(request.TargetUserId));
++            }
++
++            if (!string.Equals(targetUser.Role, "User", StringComparison.OrdinalIgnoreCase))
++            {
++                _logger.LogWarning(
++                    "Moderation denied: Target user is Trainer or Admin. ModeratorId={ModeratorId}, TargetUserId={TargetUserId}, ErrorCode={ErrorCode}, Field={Field}",
++                    request.ModeratorId, request.TargetUserId, ErrorCodes.CannotModerateTrainerOrAdmin, nameof(request.TargetUserId));
++                return OperationResult<bool>.Failure(ErrorCodes.CannotModerateTrainerOrAdmin, "Неможливо модерувати або блокувати іншого тренера чи адміністратора.", nameof(request.TargetUserId));
++            }
++
++            var effectiveExcluded = request.IsExcludedFromLeaderboard || request.IsBlocked;
++            DateTimeOffset? blockedAt = request.IsBlocked
++                ? (targetUser.BlockedAt ?? DateTimeOffset.UtcNow)
++                : null;
++
++            var updated = await _userRepository.UpdateModerationStatusAsync(
++                request.TargetUserId,
++                effectiveExcluded,
++                request.IsBlocked,
++                blockedAt);
++
++            if (!updated)
++            {
++                _logger.LogWarning(
++                    "Moderation update failed in repository. ModeratorId={ModeratorId}, TargetUserId={TargetUserId}, ErrorCode={ErrorCode}, Field={Field}",
++                    request.ModeratorId, request.TargetUserId, ErrorCodes.UserNotFound, nameof(request.TargetUserId));
++                return OperationResult<bool>.Failure(ErrorCodes.UserNotFound, "Не вдалося оновити статус модерації користувача.", nameof(request.TargetUserId));
++            }
++
++            _logger.LogInformation(
++                "Moderation status updated successfully. ModeratorId={ModeratorId}, TargetUserId={TargetUserId}, IsExcludedFromLeaderboard={IsExcluded}, IsBlocked={IsBlocked}, BlockedAt={BlockedAt}",
++                request.ModeratorId, request.TargetUserId, effectiveExcluded, request.IsBlocked, blockedAt);
++
++            return OperationResult<bool>.Success(true);
++        }
++
++        private static bool IsTrainerOrAdmin(string? role) =>
++            string.Equals(role, "Trainer", StringComparison.OrdinalIgnoreCase) ||
++            string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
++    }
++}
+diff --git a/MyApp.Wpf/ViewModels/GymModerationViewModel.cs b/MyApp.Wpf/ViewModels/GymModerationViewModel.cs
+new file mode 100644
+--- /dev/null
++++ b/MyApp.Wpf/ViewModels/GymModerationViewModel.cs
+@@ -0,0 +1,212 @@
++using System.Collections.ObjectModel;
++using System.ComponentModel;
++using System.Runtime.CompilerServices;
++using System.Threading.Tasks;
++using System.Windows.Input;
++using MyApp.Application.DTOs.Moderation;
++using MyApp.Application.Interfaces;
++using MyApp.Domain.Entities;
++
++namespace MyApp.Wpf.ViewModels
++{
++    public class GymModerationViewModel : INotifyPropertyChanged
++    {
++        private readonly IGymModerationService _moderationService;
++        private readonly int _currentModeratorId;
++
++        private int? _selectedGymId;
++        private int? _selectedDivisionId;
++        private string _searchQuery = string.Empty;
++        private GymRosterMemberDto? _selectedMember;
++        private int _totalAthletes;
++        private int _activeInLeaderboard;
++        private int _excludedFromLeaderboard;
++        private string _statusMessage = string.Empty;
++
++        public ObservableCollection<Gym> Gyms { get; } = new();
++        public ObservableCollection<Division> Divisions { get; } = new();
++        public ObservableCollection<GymRosterMemberDto> Members { get; } = new();
++
++        public GymModerationViewModel(IGymModerationService moderationService, int currentModeratorId)
++        {
++            _moderationService = moderationService;
++            _currentModeratorId = currentModeratorId;
++
++            RefreshCommand = new RelayCommand(async _ => await LoadRosterAsync());
++            ToggleLeaderboardExclusionCommand = new RelayCommand(
++                async _ => await ToggleLeaderboardExclusionAsync(),
++                _ => SelectedMember != null);
++            ToggleBlockStatusCommand = new RelayCommand(
++                async _ => await ToggleBlockStatusAsync(),
++                _ => SelectedMember != null);
++        }
++
++        public int? SelectedGymId
++        {
++            get => _selectedGymId;
++            set
++            {
++                if (_selectedGymId != value)
++                {
++                    _selectedGymId = value;
++                    OnPropertyChanged();
++                    _ = LoadRosterAsync();
++                }
++            }
++        }
++
++        public int? SelectedDivisionId
++        {
++            get => _selectedDivisionId;
++            set
++            {
++                if (_selectedDivisionId != value)
++                {
++                    _selectedDivisionId = value;
++                    OnPropertyChanged();
++                    _ = LoadRosterAsync();
++                }
++            }
++        }
++
++        public string SearchQuery
++        {
++            get => _searchQuery;
++            set
++            {
++                if (_searchQuery != value)
++                {
++                    _searchQuery = value;
++                    OnPropertyChanged();
++                    _ = LoadRosterAsync();
++                }
++            }
++        }
++
++        public GymRosterMemberDto? SelectedMember
++        {
++            get => _selectedMember;
++            set
++            {
++                _selectedMember = value;
++                OnPropertyChanged();
++                OnPropertyChanged(nameof(ExcludeButtonText));
++                OnPropertyChanged(nameof(BlockButtonText));
++                OnPropertyChanged(nameof(HasSelectedMember));
++            }
++        }
++
++        public bool HasSelectedMember => SelectedMember != null;
++
++        public string ExcludeButtonText => SelectedMember?.IsExcludedFromLeaderboard == true
++            ? "Повернути в лідерборд"
++            : "Виключити з лідерборду";
++
++        public string BlockButtonText => SelectedMember?.IsBlocked == true
++            ? "Розблокувати акаунт"
++            : "Заблокувати акаунт";
++
++        public int TotalAthletes
++        {
++            get => _totalAthletes;
++            set { _totalAthletes = value; OnPropertyChanged(); }
++        }
++
++        public int ActiveInLeaderboard
++        {
++            get => _activeInLeaderboard;
++            set { _activeInLeaderboard = value; OnPropertyChanged(); }
++        }
++
++        public int ExcludedFromLeaderboard
++        {
++            get => _excludedFromLeaderboard;
++            set { _excludedFromLeaderboard = value; OnPropertyChanged(); }
++        }
++
++        public string StatusMessage
++        {
++            get => _statusMessage;
++            set { _statusMessage = value; OnPropertyChanged(); }
++        }
++
++        public ICommand RefreshCommand { get; }
++        public ICommand ToggleLeaderboardExclusionCommand { get; }
++        public ICommand ToggleBlockStatusCommand { get; }
++
++        public async Task LoadRosterAsync()
++        {
++            var result = await _moderationService.GetGymRosterAsync(SelectedGymId, SelectedDivisionId, SearchQuery);
++            if (!result.IsSuccess || result.Data == null)
++            {
++                StatusMessage = result.ErrorMessage ?? "Помилка завантаження списку учасників.";
++                return;
++            }
++
++            TotalAthletes = result.Data.TotalAthletes;
++            ActiveInLeaderboard = result.Data.ActiveInLeaderboard;
++            ExcludedFromLeaderboard = result.Data.ExcludedFromLeaderboard;
++
++            Members.Clear();
++            foreach (var member in result.Data.Members)
++            {
++                Members.Add(member);
++            }
++
++            StatusMessage = $"Завантажено учасників: {Members.Count}";
++        }
++
++        public async Task ToggleLeaderboardExclusionAsync()
++        {
++            if (SelectedMember == null) return;
++
++            var targetId = SelectedMember.UserId;
++            var request = new UpdateAthleteModerationRequest
++            {
++                ModeratorId = _currentModeratorId,
++                TargetUserId = targetId,
++                IsExcludedFromLeaderboard = !SelectedMember.IsExcludedFromLeaderboard,
++                IsBlocked = SelectedMember.IsBlocked
++            };
++
++            var result = await _moderationService.UpdateModerationStatusAsync(request);
++            if (!result.IsSuccess)
++            {
++                StatusMessage = result.ErrorMessage ?? "Не вдалося оновити статус у лідерборді.";
++                return;
++            }
++
++            StatusMessage = "Статус участі в лідерборді успішно оновлено.";
++            await LoadRosterAsync();
++        }
++
++        public async Task ToggleBlockStatusAsync()
++        {
++            if (SelectedMember == null) return;
++
++            var targetId = SelectedMember.UserId;
++            var newBlockState = !SelectedMember.IsBlocked;
++            var request = new UpdateAthleteModerationRequest
++            {
++                ModeratorId = _currentModeratorId,
++                TargetUserId = targetId,
++                IsExcludedFromLeaderboard = newBlockState || SelectedMember.IsExcludedFromLeaderboard,
++                IsBlocked = newBlockState
++            };
++
++            var result = await _moderationService.UpdateModerationStatusAsync(request);
++            if (!result.IsSuccess)
++            {
++                StatusMessage = result.ErrorMessage ?? "Не вдалося змінити статус блокування.";
++                return;
++            }
++
++            StatusMessage = newBlockState ? "Акаунт заблоковано." : "Акаунт розблоковано.";
++            await LoadRosterAsync();
++        }
++
++        public event PropertyChangedEventHandler? PropertyChanged;
++        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
++            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
++    }
++}
+diff --git a/MyApp.Wpf/Views/GymModerationWindow.xaml b/MyApp.Wpf/Views/GymModerationWindow.xaml
+new file mode 100644
+--- /dev/null
++++ b/MyApp.Wpf/Views/GymModerationWindow.xaml
+@@ -0,0 +1,111 @@
++<Window x:Class="MyApp.Wpf.Views.GymModerationWindow"
++        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
++        Title="Учасники залу та модерація" Height="620" Width="980"
++        WindowStartupLocation="CenterOwner" Background="#12131A" Foreground="#F0F0F5">
++    <Grid Margin="16">
++        <Grid.RowDefinitions>
++            <RowDefinition Height="Auto"/>
++            <RowDefinition Height="Auto"/>
++            <RowDefinition Height="*"/>
++            <RowDefinition Height="Auto"/>
++        </Grid.RowDefinitions>
++
++        <!-- Фільтри: Зал, Дивізіон, Пошук за нікнеймом -->
++        <Border Grid.Row="0" Background="#1D1F2B" CornerRadius="8" Padding="12" Margin="0,0,0,12">
++            <Grid>
++                <Grid.ColumnDefinitions>
++                    <ColumnDefinition Width="220"/>
++                    <ColumnDefinition Width="220"/>
++                    <ColumnDefinition Width="*"/>
++                    <ColumnDefinition Width="Auto"/>
++                </Grid.ColumnDefinitions>
++
++                <StackPanel Grid.Column="0" Margin="0,0,12,0">
++                    <TextBlock Text="Спортзал" FontSize="12" Foreground="#9EA3B8" Margin="0,0,0,4"/>
++                    <ComboBox ItemsSource="{Binding Gyms}"
++                              SelectedValuePath="Id"
++                              DisplayMemberPath="Name"
++                              SelectedValue="{Binding SelectedGymId, Mode=TwoWay}"
++                              Height="30"/>
++                </StackPanel>
++
++                <StackPanel Grid.Column="1" Margin="0,0,12,0">
++                    <TextBlock Text="Дивізіон" FontSize="12" Foreground="#9EA3B8" Margin="0,0,0,4"/>
++                    <ComboBox ItemsSource="{Binding Divisions}"
++                              SelectedValuePath="Id"
++                              DisplayMemberPath="Name"
++                              SelectedValue="{Binding SelectedDivisionId, Mode=TwoWay}"
++                              Height="30"/>
++                </StackPanel>
++
++                <StackPanel Grid.Column="2" Margin="0,0,12,0">
++                    <TextBlock Text="Пошук за нікнеймом" FontSize="12" Foreground="#9EA3B8" Margin="0,0,0,4"/>
++                    <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
++                             Height="30" VerticalContentAlignment="Center" Padding="6,0"/>
++                </StackPanel>
++
++                <Button Grid.Column="3" Content="Оновити" Command="{Binding RefreshCommand}"
++                        VerticalAlignment="Bottom" Height="30" Padding="16,0"/>
++            </Grid>
++        </Border>
++
++        <!-- Зведена статистика залу -->
++        <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,12">
++            <Border Background="#1D1F2B" CornerRadius="8" Padding="10" Margin="0,0,6,0">
++                <StackPanel>
++                    <TextBlock Text="Всього атлетів" Foreground="#9EA3B8" FontSize="12"/>
++                    <TextBlock Text="{Binding TotalAthletes}" FontSize="20" FontWeight="Bold"/>
++                </StackPanel>
++            </Border>
++            <Border Background="#1D1F2B" CornerRadius="8" Padding="10" Margin="3,0">
++                <StackPanel>
++                    <TextBlock Text="Активні у рейтингу" Foreground="#9EA3B8" FontSize="12"/>
++                    <TextBlock Text="{Binding ActiveInLeaderboard}" FontSize="20" FontWeight="Bold" Foreground="#4CD964"/>
++                </StackPanel>
++            </Border>
++            <Border Background="#1D1F2B" CornerRadius="8" Padding="10" Margin="6,0,0,0">
++                <StackPanel>
++                    <TextBlock Text="Приховані з лідерборду" Foreground="#9EA3B8" FontSize="12"/>
++                    <TextBlock Text="{Binding ExcludedFromLeaderboard}" FontSize="20" FontWeight="Bold" Foreground="#FF9500"/>
++                </StackPanel>
++            </Border>
++        </UniformGrid>
++
++        <!-- Таблиця учасників клубу -->
++        <DataGrid Grid.Row="2"
++                  ItemsSource="{Binding Members}"
++                  SelectedItem="{Binding SelectedMember, Mode=TwoWay}"
++                  AutoGenerateColumns="False"
++                  IsReadOnly="True"
++                  SelectionMode="Single"
++                  Margin="0,0,0,12">
++            <DataGrid.Columns>
++                <DataGridTextColumn Header="Нікнейм" Binding="{Binding Nickname}" Width="150"/>
++                <DataGridTextColumn Header="Спортзал" Binding="{Binding GymName}" Width="160"/>
++                <DataGridTextColumn Header="Дивізіон" Binding="{Binding DivisionName}" Width="140"/>
++                <DataGridTextColumn Header="Рівень" Binding="{Binding Level}" Width="75"/>
++                <DataGridTextColumn Header="XP" Binding="{Binding Xp}" Width="85"/>
++                <DataGridTextColumn Header="Підозрілі (is_suspicious)" Binding="{Binding SuspiciousWorkoutsCount}" Width="160"/>
++                <DataGridTextColumn Header="Статус у лідерборді" Binding="{Binding LeaderboardStatusText}" Width="*"/>
++            </DataGrid.Columns>
++        </DataGrid>
++
++        <!-- Панель керування обраним атлетом -->
++        <Border Grid.Row="3" Background="#1D1F2B" CornerRadius="8" Padding="12">
++            <DockPanel LastChildFill="True">
++                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
++                    <Button Content="{Binding ExcludeButtonText}"
++                            Command="{Binding ToggleLeaderboardExclusionCommand}"
++                            IsEnabled="{Binding HasSelectedMember}"
++                            Margin="0,0,10,0" Padding="14,8"/>
++                    <Button Content="{Binding BlockButtonText}"
++                            Command="{Binding ToggleBlockStatusCommand}"
++                            IsEnabled="{Binding HasSelectedMember}"
++                            Padding="14,8" Background="#D9383A" Foreground="White"/>
++                </StackPanel>
++                <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="#9EA3B8"/>
++            </DockPanel>
++        </Border>
++    </Grid>
++</Window>
+diff --git a/MyApp.Wpf/Views/GymModerationWindow.xaml.cs b/MyApp.Wpf/Views/GymModerationWindow.xaml.cs
+new file mode 100644
+--- /dev/null
++++ b/MyApp.Wpf/Views/GymModerationWindow.xaml.cs
+@@ -0,0 +1,18 @@
++using System.Windows;
++using MyApp.Wpf.ViewModels;
++
++namespace MyApp.Wpf.Views
++{
++    public partial class GymModerationWindow : Window
++    {
++        private readonly GymModerationViewModel _viewModel;
++
++        public GymModerationWindow(GymModerationViewModel viewModel)
++        {
++            InitializeComponent();
++            _viewModel = viewModel;
++            DataContext = _viewModel;
++            Loaded += async (_, _) => await _viewModel.LoadRosterAsync();
++        }
++    }
++}
+diff --git a/MyApp.Tests/Services/GymModerationServiceTests.cs b/MyApp.Tests/Services/GymModerationServiceTests.cs
+new file mode 100644
+--- /dev/null
++++ b/MyApp.Tests/Services/GymModerationServiceTests.cs
+@@ -0,0 +1,183 @@
++using System;
++using System.Collections.Generic;
++using System.Threading.Tasks;
++using Microsoft.Extensions.Logging;
++using Moq;
++using MyApp.Application.Common;
++using MyApp.Application.DTOs.Moderation;
++using MyApp.Application.Interfaces;
++using MyApp.Application.Services;
++using MyApp.Domain.Entities;
++using Xunit;
++
++namespace MyApp.Tests.Services
++{
++    public class GymModerationServiceTests
++    {
++        private readonly Mock<IUserRepository> _userRepoMock;
++        private readonly Mock<ILogger<GymModerationService>> _loggerMock;
++        private readonly GymModerationService _sut;
++
++        public GymModerationServiceTests()
++        {
++            _userRepoMock = new Mock<IUserRepository>();
++            _loggerMock = new Mock<ILogger<GymModerationService>>();
++            _sut = new GymModerationService(_userRepoMock.Object, _loggerMock.Object);
++        }
++
++        [Fact]
++        public async Task GetGymRosterAsync_WithFiltersAndSearch_ReturnsFilteredOverviewAndStats()
++        {
++            // Arrange
++            var sampleRoster = new List<GymRosterMemberDto>
++            {
++                new() { UserId = 1, Nickname = "IronDenys", Role = "User", GymId = 10, DivisionId = 2, Level = 12, Xp = 3400, SuspiciousWorkoutsCount = 0, IsExcludedFromLeaderboard = false, IsBlocked = false },
++                new() { UserId = 2, Nickname = "IronCheater", Role = "User", GymId = 10, DivisionId = 2, Level = 15, Xp = 5000, SuspiciousWorkoutsCount = 4, IsExcludedFromLeaderboard = true, IsBlocked = false },
++                new() { UserId = 3, Nickname = "CasualLifter", Role = "User", GymId = 10, DivisionId = 2, Level = 5, Xp = 800, SuspiciousWorkoutsCount = 0, IsExcludedFromLeaderboard = false, IsBlocked = false },
++                new() { UserId = 4, Nickname = "IronCoach", Role = "Trainer", GymId = 10, DivisionId = 2, Level = 20, Xp = 9000 }
++            };
++
++            _userRepoMock
++                .Setup(r => r.GetGymRosterAsync(10, 2))
++                .ReturnsAsync(sampleRoster);
++
++            // Act
++            var result = await _sut.GetGymRosterAsync(gymId: 10, divisionId: 2, searchQuery: "Iron");
++
++            // Assert
++            Assert.True(result.IsSuccess);
++            Assert.NotNull(result.Data);
++            Assert.Equal(2, result.Data!.TotalAthletes);
++            Assert.Equal(1, result.Data.ActiveInLeaderboard);
++            Assert.Equal(1, result.Data.ExcludedFromLeaderboard);
++            Assert.Equal(2, result.Data.Members.Count);
++            Assert.Equal("IronCheater", result.Data.Members[0].Nickname);
++        }
++
++        [Fact]
++        public async Task UpdateModerationStatusAsync_WhenModeratorIsRegularUser_ReturnsModerationAccessDenied()
++        {
++            // Arrange
++            var request = new UpdateAthleteModerationRequest
++            {
++                ModeratorId = 5,
++                TargetUserId = 10,
++                IsExcludedFromLeaderboard = true,
++                IsBlocked = false
++            };
++
++            _userRepoMock
++                .Setup(r => r.GetByIdAsync(5))
++                .ReturnsAsync(new User { Id = 5, Nickname = "RegularAthlete", Role = "User" });
++
++            // Act
++            var result = await _sut.UpdateModerationStatusAsync(request);
++
++            // Assert
++            Assert.False(result.IsSuccess);
++            Assert.Equal(ErrorCodes.ModerationAccessDenied, result.ErrorCode);
++            VerifyLogWarningCalled();
++            _userRepoMock.Verify(r => r.UpdateModerationStatusAsync(It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<DateTimeOffset?>()), Times.Never);
++        }
++
++        [Fact]
++        public async Task UpdateModerationStatusAsync_WhenModeratingSelf_ReturnsCannotModerateSelf()
++        {
++            // Arrange
++            var request = new UpdateAthleteModerationRequest
++            {
++                ModeratorId = 7,
++                TargetUserId = 7,
++                IsExcludedFromLeaderboard = true,
++                IsBlocked = true
++            };
++
++            // Act
++            var result = await _sut.UpdateModerationStatusAsync(request);
++
++            // Assert
++            Assert.False(result.IsSuccess);
++            Assert.Equal(ErrorCodes.CannotModerateSelf, result.ErrorCode);
++            VerifyLogWarningCalled();
++            _userRepoMock.Verify(r => r.UpdateModerationStatusAsync(It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<DateTimeOffset?>()), Times.Never);
++        }
++
++        [Fact]
++        public async Task UpdateModerationStatusAsync_WhenTargetIsTrainerOrAdmin_ReturnsCannotModerateTrainerOrAdmin()
++        {
++            // Arrange
++            var request = new UpdateAthleteModerationRequest
++            {
++                ModeratorId = 1,
++                TargetUserId = 2,
++                IsExcludedFromLeaderboard = true,
++                IsBlocked = false
++            };
++
++            _userRepoMock
++                .Setup(r => r.GetByIdAsync(1))
++                .ReturnsAsync(new User { Id = 1, Nickname = "MainCoach", Role = "Trainer" });
++
++            _userRepoMock
++                .Setup(r => r.GetByIdAsync(2))
++                .ReturnsAsync(new User { Id = 2, Nickname = "OtherCoach", Role = "Trainer" });
++
++            // Act
++            var result = await _sut.UpdateModerationStatusAsync(request);
++
++            // Assert
++            Assert.False(result.IsSuccess);
++            Assert.Equal(ErrorCodes.CannotModerateTrainerOrAdmin, result.ErrorCode);
++            VerifyLogWarningCalled();
++            _userRepoMock.Verify(r => r.UpdateModerationStatusAsync(It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<DateTimeOffset?>()), Times.Never);
++        }
++
++        [Fact]
++        public async Task UpdateModerationStatusAsync_ValidBlockRequest_SetsBlockedAtUpdatesRepoAndSucceeds()
++        {
++            // Arrange
++            var request = new UpdateAthleteModerationRequest
++            {
++                ModeratorId = 1,
++                TargetUserId = 15,
++                IsExcludedFromLeaderboard = false,
++                IsBlocked = true
++            };
++
++            _userRepoMock
++                .Setup(r => r.GetByIdAsync(1))
++                .ReturnsAsync(new User { Id = 1, Nickname = "ClubAdmin", Role = "Admin" });
++
++            _userRepoMock
++                .Setup(r => r.GetByIdAsync(15))
++                .ReturnsAsync(new User { Id = 15, Nickname = "SuspectUser", Role = "User", IsBlocked = false, BlockedAt = null });
++
++            DateTimeOffset? capturedBlockedAt = null;
++            _userRepoMock
++                .Setup(r => r.UpdateModerationStatusAsync(15, true, true, It.IsAny<DateTimeOffset?>()))
++                .Callback<int, bool, bool, DateTimeOffset?>((_, _, _, blockedAt) => capturedBlockedAt = blockedAt)
++                .ReturnsAsync(true);
++
++            // Act
++            var result = await _sut.UpdateModerationStatusAsync(request);
++
++            // Assert
++            Assert.True(result.IsSuccess);
++            Assert.True(result.Data);
++            Assert.NotNull(capturedBlockedAt);
++            _userRepoMock.Verify(r => r.UpdateModerationStatusAsync(15, true, true, It.IsNotNull<DateTimeOffset?>()), Times.Once);
++        }
++
++        private void VerifyLogWarningCalled()
++        {
++            _loggerMock.Verify(
++                x => x.Log(
++                    LogLevel.Warning,
++                    It.IsAny<EventId>(),
++                    It.Is<It.IsAnyType>((v, t) => true),
++                    It.IsAny<Exception?>(),
++                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
++                Times.Once);
++        }
++    }
++}

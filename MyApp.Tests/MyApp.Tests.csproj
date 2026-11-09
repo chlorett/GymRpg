@@ -25,7 +25,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\src\MyApp.Application\MyApp.Application.csproj" />
-    <ProjectReference Include="..\src\MyApp.Domain\MyApp.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,111 @@
+<Window x:Class="MyApp.Wpf.Views.GymModerationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Учасники залу та модерація" Height="620" Width="980"
+        WindowStartupLocation="CenterOwner" Background="#12131A" Foreground="#F0F0F5">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Фільтри: Зал, Дивізіон, Пошук за нікнеймом -->
+        <Border Grid.Row="0" Background="#1D1F2B" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                    <TextBlock Text="Спортзал" FontSize="12" Foreground="#9EA3B8" Margin="0,0,0,4"/>
+                    <ComboBox ItemsSource="{Binding Gyms}"
+                              SelectedValuePath="Id"
+                              DisplayMemberPath="Name"
+                              SelectedValue="{Binding SelectedGymId, Mode=TwoWay}"
+                              Height="30"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                    <TextBlock Text="Дивізіон" FontSize="12" Foreground="#9EA3B8" Margin="0,0,0,4"/>
+                    <ComboBox ItemsSource="{Binding Divisions}"
+                              SelectedValuePath="Id"
+                              DisplayMemberPath="Name"
+                              SelectedValue="{Binding SelectedDivisionId, Mode=TwoWay}"
+                              Height="30"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Margin="0,0,12,0">
+                    <TextBlock Text="Пошук за нікнеймом" FontSize="12" Foreground="#9EA3B8" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                             Height="30" VerticalContentAlignment="Center" Padding="6,0"/>
+                </StackPanel>
+
+                <Button Grid.Column="3" Content="Оновити" Command="{Binding RefreshCommand}"
+                        VerticalAlignment="Bottom" Height="30" Padding="16,0"/>
+            </Grid>
+        </Border>
+
+        <!-- Зведена статистика залу -->
+        <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,12">
+            <Border Background="#1D1F2B" CornerRadius="8" Padding="10" Margin="0,0,6,0">
+                <StackPanel>
+                    <TextBlock Text="Всього атлетів" Foreground="#9EA3B8" FontSize="12"/>
+                    <TextBlock Text="{Binding TotalAthletes}" FontSize="20" FontWeight="Bold"/>
+                </StackPanel>
+            </Border>
+            <Border Background="#1D1F2B" CornerRadius="8" Padding="10" Margin="3,0">
+                <StackPanel>
+                    <TextBlock Text="Активні у рейтингу" Foreground="#9EA3B8" FontSize="12"/>
+                    <TextBlock Text="{Binding ActiveInLeaderboard}" FontSize="20" FontWeight="Bold" Foreground="#4CD964"/>
+                </StackPanel>
+            </Border>
+            <Border Background="#1D1F2B" CornerRadius="8" Padding="10" Margin="6,0,0,0">
+                <StackPanel>
+                    <TextBlock Text="Приховані з лідерборду" Foreground="#9EA3B8" FontSize="12"/>
+                    <TextBlock Text="{Binding ExcludedFromLeaderboard}" FontSize="20" FontWeight="Bold" Foreground="#FF9500"/>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- Таблиця учасників клубу -->
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding Members}"
+                  SelectedItem="{Binding SelectedMember, Mode=TwoWay}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  Margin="0,0,0,12">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Нікнейм" Binding="{Binding Nickname}" Width="150"/>
+                <DataGridTextColumn Header="Спортзал" Binding="{Binding GymName}" Width="160"/>
+                <DataGridTextColumn Header="Дивізіон" Binding="{Binding DivisionName}" Width="140"/>
+                <DataGridTextColumn Header="Рівень" Binding="{Binding Level}" Width="75"/>
+                <DataGridTextColumn Header="XP" Binding="{Binding Xp}" Width="85"/>
+                <DataGridTextColumn Header="Підозрілі (is_suspicious)" Binding="{Binding SuspiciousWorkoutsCount}" Width="160"/>
+                <DataGridTextColumn Header="Статус у лідерборді" Binding="{Binding LeaderboardStatusText}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Панель керування обраним атлетом -->
+        <Border Grid.Row="3" Background="#1D1F2B" CornerRadius="8" Padding="12">
+            <DockPanel LastChildFill="True">
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                    <Button Content="{Binding ExcludeButtonText}"
+                            Command="{Binding ToggleLeaderboardExclusionCommand}"
+                            IsEnabled="{Binding HasSelectedMember}"
+                            Margin="0,0,10,0" Padding="14,8"/>
+                    <Button Content="{Binding BlockButtonText}"
+                            Command="{Binding ToggleBlockStatusCommand}"
+                            IsEnabled="{Binding HasSelectedMember}"
+                            Padding="14,8" Background="#D9383A" Foreground="White"/>
+                </StackPanel>
+                <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="#9EA3B8"/>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
