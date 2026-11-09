@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MyApp.Application.Dtos;
 using MyApp.Application.Interfaces;
 using MyApp.Domain.Entities;
 using MyApp.Domain.Enums;
@@ -353,6 +354,67 @@ public sealed class UserRepository : IUserRepository
             ApplyAffiliation(local, username, gymId, divisionId);
             return true;
         }
+    }
+
+    public async Task<IReadOnlyList<GymRosterMemberDto>> GetGymRosterAsync(int? gymId, int? divisionId)
+    {
+        var query = _db.Users.AsQueryable();
+
+        if (gymId.HasValue)
+        {
+            query = query.Where(u => u.GymId == gymId.Value);
+        }
+
+        if (divisionId.HasValue)
+        {
+            query = query.Where(u => u.DivisionId == divisionId.Value);
+        }
+
+        var users = await query.ToListAsync();
+        var list = new List<GymRosterMemberDto>();
+
+        foreach (var u in users)
+        {
+            list.Add(new GymRosterMemberDto
+            {
+                UserId = (int)u.Id,
+                Nickname = u.Username ?? string.Empty,
+                Role = u.Role.ToString(),
+                GymId = u.GymId,
+                GymName = u.GymId.HasValue ? "Зал #" + u.GymId.Value : "Не обрано",
+                DivisionId = u.DivisionId,
+                DivisionName = u.DivisionId.HasValue ? "Дивізіон #" + u.DivisionId.Value : "Не обрано",
+                Level = 1,
+                Xp = 0,
+                SuspiciousWorkoutsCount = 0,
+                IsExcludedFromLeaderboard = u.IsExcludedFromLeaderboard,
+                IsBlocked = u.IsBlocked,
+                BlockedAt = u.BlockedAt
+            });
+        }
+
+        return list;
+    }
+
+    public async Task<bool> UpdateModerationStatusAsync(
+        int userId,
+        bool isExcludedFromLeaderboard,
+        bool isBlocked,
+        DateTimeOffset? blockedAt)
+    {
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null)
+        {
+            return false;
+        }
+
+        user.IsExcludedFromLeaderboard = isExcludedFromLeaderboard;
+        user.IsBlocked = isBlocked;
+        user.BlockedAt = blockedAt;
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return true;
     }
 
     internal static IReadOnlyList<User> GetInMemoryUsersSnapshot()
