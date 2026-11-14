@@ -72,6 +72,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<AccountAffiliationViewModel>();
         services.AddTransient<GymModerationWindow>();
         services.AddTransient<GymModerationViewModel>();
+        services.AddTransient<GymStandingsWindow>();
+        services.AddTransient<GymStandingsViewModel>();
 
         // --- Назар ---
         services.AddTransient<TrackWorkoutWindow>();

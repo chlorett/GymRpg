@@ -102,6 +102,8 @@
                                     Click="OnUserProgressClick" />
                             <Button Content="Лідерборд (Рейтинг)" Style="{StaticResource MenuItemButton}"
                                     Click="OnLeaderboardClick" />
+                            <Button Content="Рейтинг спортзалів" Style="{StaticResource MenuItemButton}"
+                                    Click="OnGymStandingsClick" />
                             <Button Content="Медалі та досягнення" Style="{StaticResource MenuItemButton}"
                                     Click="OnMedalsClick" />
                             <Button Content="Аналітика м'язів" Style="{StaticResource MenuItemButton}"

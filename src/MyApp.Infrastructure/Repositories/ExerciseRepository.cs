@@ -93,6 +93,18 @@ public sealed class ExerciseRepository : IExerciseRepository
         },
     };
 
+    private static readonly object FallbackLock = new();
+    private static readonly List<Exercise> FallbackExercises = DefaultExercises
+        .Select(e => new Exercise
+        {
+            Id = e.Id,
+            Name = e.Name,
+            EquipmentType = e.EquipmentType,
+            Description = e.Description,
+            Technique = e.Technique,
+        })
+        .ToList();
+
     private readonly AppDbContext _db;
     private readonly ILogger<ExerciseRepository> _logger;
 
@@ -112,17 +124,17 @@ public sealed class ExerciseRepository : IExerciseRepository
                 .AsNoTracking()
                 .FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted, ct);
 
-            if (exercise is not null)
+            if (exercise is not null || await _db.Exercises.AnyAsync(ct))
             {
                 return exercise;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Помилка зв'язку з базою даних при пошуку вправи {ExerciseId}, перевіряємо резервний каталог", id);
         }
 
-        return DefaultExercises.FirstOrDefault(e => e.Id == id);
+        return GetFallbackSnapshot().Find(e => e.Id == id);
     }
 
     public async Task<IReadOnlyList<Exercise>> GetAllAsync(CancellationToken ct = default)
@@ -137,18 +149,117 @@ public sealed class ExerciseRepository : IExerciseRepository
                 .OrderBy(exercise => exercise.Name)
                 .ToListAsync(ct);
 
-            if (dbExercises.Count > 0)
+            if (dbExercises.Count > 0 || await _db.Exercises.AnyAsync(ct))
             {
                 return dbExercises;
             }
 
             _logger.LogWarning("База даних не містить вправ, використовуємо базовий каталог");
-            return DefaultExercises;
+            return GetFallbackSnapshot();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Помилка зв'язку з базою даних при завантаженні вправ, використовуємо резервний каталог");
-            return DefaultExercises;
+            return GetFallbackSnapshot();
+        }
+    }
+
+    public async Task<Exercise> AddAsync(Exercise exercise, CancellationToken ct = default)
+    {
+        try
+        {
+            _db.Exercises.Add(exercise);
+            await _db.SaveChangesAsync(ct);
+            return exercise;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Помилка зв'язку з базою даних при додаванні вправи, зберігаємо в резервний каталог");
+            _db.Entry(exercise).State = EntityState.Detached;
+
+            lock (FallbackLock)
+            {
+                exercise.Id = FallbackExercises.Count == 0 ? 1 : FallbackExercises.Max(e => e.Id) + 1;
+                FallbackExercises.Add(exercise);
+            }
+
+            return exercise;
+        }
+    }
+
+    public async Task<bool> UpdateAsync(int id, string? description, string? technique, CancellationToken ct = default)
+    {
+        try
+        {
+            var entity = await _db.Exercises.FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted, ct);
+            if (entity is null)
+            {
+                return false;
+            }
+
+            entity.Description = description;
+            entity.Technique = technique;
+            await _db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Помилка зв'язку з базою даних при оновленні вправи {ExerciseId}, оновлюємо резервний каталог", id);
+
+            lock (FallbackLock)
+            {
+                var fallback = FallbackExercises.Find(e => e.Id == id && !e.IsDeleted);
+                if (fallback is null)
+                {
+                    return false;
+                }
+
+                fallback.Description = description;
+                fallback.Technique = technique;
+                return true;
+            }
+        }
+    }
+
+    public async Task<bool> SoftDeleteAsync(int id, CancellationToken ct = default)
+    {
+        try
+        {
+            var entity = await _db.Exercises.FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted, ct);
+            if (entity is null)
+            {
+                return false;
+            }
+
+            entity.IsDeleted = true;
+            entity.DeletedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Помилка зв'язку з базою даних при архівації вправи {ExerciseId}, архівуємо в резервному каталозі", id);
+
+            lock (FallbackLock)
+            {
+                var fallback = FallbackExercises.Find(e => e.Id == id && !e.IsDeleted);
+                if (fallback is null)
+                {
+                    return false;
+                }
+
+                fallback.IsDeleted = true;
+                fallback.DeletedAt = DateTime.UtcNow;
+                return true;
+            }
+        }
+    }
+
+    private static List<Exercise> GetFallbackSnapshot()
+    {
+        lock (FallbackLock)
+        {
+            return FallbackExercises.Where(e => !e.IsDeleted).ToList();
         }
     }
 }

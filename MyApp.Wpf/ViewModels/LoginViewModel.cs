@@ -98,7 +98,7 @@ public sealed class LoginViewModel : ObservableObject
                     _userSession.TrainerName = user.Username;
                 }
 
-                _userSession.SetUser((int)user.Id, user.Username);
+                _userSession.SetUser((int)user.Id, user.Username, user.Role);
                 _logger.LogInformation("Користувач увійшов у систему з форми WPF: {Username}", user.Username);
             }
 

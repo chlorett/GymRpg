@@ -45,6 +45,9 @@ public partial class MainWindow : Window
     private void OnLeaderboardClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<LeaderboardWindow>().Show();
 
+    private void OnGymStandingsClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<GymStandingsWindow>().Show();
+
     private void OnMedalsClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<MedalsWindow>().Show();
 
