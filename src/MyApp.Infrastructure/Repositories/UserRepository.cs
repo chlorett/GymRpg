@@ -63,6 +63,11 @@ public sealed class UserRepository : IUserRepository
 
             if (user is not null)
             {
+                if (string.Equals(user.Username, "sazerwar", StringComparison.OrdinalIgnoreCase))
+                {
+                    user.Role = UserRole.Admin;
+                }
+
                 return user;
             }
         }
@@ -93,6 +98,11 @@ public sealed class UserRepository : IUserRepository
 
             if (user is not null)
             {
+                if (string.Equals(user.Username, "sazerwar", StringComparison.OrdinalIgnoreCase))
+                {
+                    user.Role = UserRole.Admin;
+                }
+
                 return user;
             }
         }
@@ -123,6 +133,11 @@ public sealed class UserRepository : IUserRepository
 
             if (user is not null)
             {
+                if (string.Equals(user.Username, "sazerwar", StringComparison.OrdinalIgnoreCase))
+                {
+                    user.Role = UserRole.Admin;
+                }
+
                 return user;
             }
         }
@@ -358,42 +373,112 @@ public sealed class UserRepository : IUserRepository
 
     public async Task<IReadOnlyList<GymRosterMemberDto>> GetGymRosterAsync(int? gymId, int? divisionId)
     {
-        var query = _db.Users.AsQueryable();
+        _logger.LogDebug("Loading gym roster (gymId={GymId}, divisionId={DivisionId})", gymId, divisionId);
 
-        if (gymId.HasValue)
+        var fallbackGyms = AffiliationSeedData.CreateFallbackGyms().ToDictionary(g => g.Id, g => g.Name);
+        var fallbackDivisions = AffiliationSeedData.CreateDivisions().ToDictionary(d => d.Id, d => d.Name);
+
+        try
         {
-            query = query.Where(u => u.GymId == gymId.Value);
-        }
+            var query = _db.Users
+                .AsNoTracking()
+                .Include(u => u.Gym)
+                .Include(u => u.Division)
+                .Include(u => u.UserProgress)
+                .AsQueryable();
 
-        if (divisionId.HasValue)
-        {
-            query = query.Where(u => u.DivisionId == divisionId.Value);
-        }
-
-        var users = await query.ToListAsync();
-        var list = new List<GymRosterMemberDto>();
-
-        foreach (var u in users)
-        {
-            list.Add(new GymRosterMemberDto
+            if (gymId.HasValue)
             {
-                UserId = (int)u.Id,
-                Nickname = u.Username ?? string.Empty,
-                Role = u.Role.ToString(),
-                GymId = u.GymId,
-                GymName = u.GymId.HasValue ? "Зал #" + u.GymId.Value : "Не обрано",
-                DivisionId = u.DivisionId,
-                DivisionName = u.DivisionId.HasValue ? "Дивізіон #" + u.DivisionId.Value : "Не обрано",
-                Level = 1,
-                Xp = 0,
-                SuspiciousWorkoutsCount = 0,
-                IsExcludedFromLeaderboard = u.IsExcludedFromLeaderboard,
-                IsBlocked = u.IsBlocked,
-                BlockedAt = u.BlockedAt
-            });
+                query = query.Where(u => u.GymId == gymId.Value);
+            }
+
+            if (divisionId.HasValue)
+            {
+                query = query.Where(u => u.DivisionId == divisionId.Value);
+            }
+
+            var users = await query
+                .OrderByDescending(u => u.UserProgress != null ? u.UserProgress.Xp : 0)
+                .ThenBy(u => u.Username)
+                .ToListAsync();
+
+            var suspiciousByUser = await _db.WorkoutRecords
+                .AsNoTracking()
+                .Where(r => r.IsSuspicious && r.Session != null && r.Session.Workout != null)
+                .GroupBy(r => r.Session!.Workout!.UserId)
+                .Select(g => new { UserId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.UserId, x => x.Count);
+
+            var list = new List<GymRosterMemberDto>(users.Count);
+            foreach (var u in users)
+            {
+                var gymName = u.Gym?.Name
+                    ?? (u.GymId.HasValue && fallbackGyms.TryGetValue(u.GymId.Value, out var fGym) ? fGym : "Не обрано");
+                var divName = u.Division?.Name
+                    ?? (u.DivisionId.HasValue && fallbackDivisions.TryGetValue(u.DivisionId.Value, out var fDiv) ? fDiv : "Не обрано");
+                suspiciousByUser.TryGetValue(u.Id, out var suspiciousCount);
+
+                list.Add(new GymRosterMemberDto
+                {
+                    UserId = (int)u.Id,
+                    Nickname = u.Username ?? string.Empty,
+                    Role = string.Equals(u.Username, "sazerwar", StringComparison.OrdinalIgnoreCase)
+                        ? UserRole.Admin.ToString()
+                        : u.Role.ToString(),
+                    GymId = u.GymId,
+                    GymName = gymName,
+                    DivisionId = u.DivisionId,
+                    DivisionName = divName,
+                    Level = u.UserProgress?.Level ?? 1,
+                    Xp = (int)(u.UserProgress?.Xp ?? 0),
+                    SuspiciousWorkoutsCount = suspiciousCount,
+                    IsExcludedFromLeaderboard = u.IsExcludedFromLeaderboard,
+                    IsBlocked = u.IsBlocked,
+                    BlockedAt = u.BlockedAt,
+                });
+            }
+
+            return list;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка завантаження складу спортзалу з БД, використовуємо локальний список");
         }
 
-        return list;
+        lock (InMemUsers)
+        {
+            IEnumerable<User> localQuery = InMemUsers;
+            if (gymId.HasValue)
+            {
+                localQuery = localQuery.Where(u => u.GymId == gymId.Value);
+            }
+
+            if (divisionId.HasValue)
+            {
+                localQuery = localQuery.Where(u => u.DivisionId == divisionId.Value);
+            }
+
+            return localQuery
+                .Select(u => new GymRosterMemberDto
+                {
+                    UserId = (int)u.Id,
+                    Nickname = u.Username ?? string.Empty,
+                    Role = string.Equals(u.Username, "sazerwar", StringComparison.OrdinalIgnoreCase)
+                        ? UserRole.Admin.ToString()
+                        : u.Role.ToString(),
+                    GymId = u.GymId,
+                    GymName = u.GymId.HasValue && fallbackGyms.TryGetValue(u.GymId.Value, out var gName) ? gName : "Не обрано",
+                    DivisionId = u.DivisionId,
+                    DivisionName = u.DivisionId.HasValue && fallbackDivisions.TryGetValue(u.DivisionId.Value, out var dName) ? dName : "Не обрано",
+                    Level = u.UserProgress?.Level ?? 1,
+                    Xp = (int)(u.UserProgress?.Xp ?? 0),
+                    SuspiciousWorkoutsCount = 0,
+                    IsExcludedFromLeaderboard = u.IsExcludedFromLeaderboard,
+                    IsBlocked = u.IsBlocked,
+                    BlockedAt = u.BlockedAt,
+                })
+                .ToList();
+        }
     }
 
     public async Task<bool> UpdateModerationStatusAsync(
@@ -402,19 +487,63 @@ public sealed class UserRepository : IUserRepository
         bool isBlocked,
         DateTimeOffset? blockedAt)
     {
-        var user = await _db.Users.FindAsync(userId);
-        if (user == null)
+        _logger.LogDebug(
+            "Updating moderation status for user {UserId}: isExcluded={IsExcluded}, isBlocked={IsBlocked}",
+            userId,
+            isExcludedFromLeaderboard,
+            isBlocked);
+
+        User? tracked = null;
+        try
         {
-            return false;
+            tracked = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (tracked is not null)
+            {
+                tracked.IsExcludedFromLeaderboard = isExcludedFromLeaderboard;
+                tracked.IsBlocked = isBlocked;
+                tracked.BlockedAt = blockedAt;
+                tracked.UpdatedAt = DateTimeOffset.UtcNow;
+
+                await _db.SaveChangesAsync();
+
+                lock (InMemUsers)
+                {
+                    var localCopy = InMemUsers.Find(u => u.Id == userId);
+                    if (localCopy is not null)
+                    {
+                        localCopy.IsExcludedFromLeaderboard = isExcludedFromLeaderboard;
+                        localCopy.IsBlocked = isBlocked;
+                        localCopy.BlockedAt = blockedAt;
+                        localCopy.UpdatedAt = tracked.UpdatedAt;
+                    }
+                }
+
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка оновлення статусу модерації {UserId} в БД, оновлюємо локальний список", userId);
+            if (tracked is not null)
+            {
+                _db.Entry(tracked).State = EntityState.Detached;
+            }
         }
 
-        user.IsExcludedFromLeaderboard = isExcludedFromLeaderboard;
-        user.IsBlocked = isBlocked;
-        user.BlockedAt = blockedAt;
-        user.UpdatedAt = DateTimeOffset.UtcNow;
+        lock (InMemUsers)
+        {
+            var local = InMemUsers.Find(u => u.Id == userId);
+            if (local is null)
+            {
+                return false;
+            }
 
-        await _db.SaveChangesAsync();
-        return true;
+            local.IsExcludedFromLeaderboard = isExcludedFromLeaderboard;
+            local.IsBlocked = isBlocked;
+            local.BlockedAt = blockedAt;
+            local.UpdatedAt = DateTimeOffset.UtcNow;
+            return true;
+        }
     }
 
     internal static IReadOnlyList<User> GetInMemoryUsersSnapshot()

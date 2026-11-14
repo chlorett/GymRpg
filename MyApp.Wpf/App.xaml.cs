@@ -70,6 +70,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<ChangePasswordViewModel>();
         services.AddTransient<AccountAffiliationWindow>();
         services.AddTransient<AccountAffiliationViewModel>();
+        services.AddTransient<GymModerationWindow>();
+        services.AddTransient<GymModerationViewModel>();
 
         // --- Назар ---
         services.AddTransient<TrackWorkoutWindow>();

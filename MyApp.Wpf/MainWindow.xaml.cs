@@ -66,6 +66,9 @@ public partial class MainWindow : Window
     private void OnAffiliationClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<AccountAffiliationWindow>().Show();
 
+    private void OnGymModerationClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<GymModerationWindow>().Show();
+
     private void OnWorkoutSessionsClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<WorkoutSessionsWindow>().Show();
 }

@@ -13,13 +13,13 @@ public static class DependencyInjection
         // --- Денис: реєстрація репозиторіїв і хешера ---
         services.AddTransient<Interfaces.IAuthService, Services.AuthService>();
 
-        // --- Денис: клубна приналежність ---
+        // --- Денис: клубна приналежність та модерація складу залу ---
         services.AddTransient<IAccountAffiliationService, AccountAffiliationService>();
+        services.AddTransient<IGymModerationService, GymModerationService>();
 
-        // --- Софія: шаблони тренувань, профіль користувача ---
+        // --- Софія: шаблони тренувань, профіль користувача та сесії ---
         services.AddTransient<IWorkoutTemplateService, WorkoutTemplateService>();
         services.AddScoped<IUserProfileService, UserProfileService>();
-        services.AddSingleton(TimeProvider.System);
         services.AddScoped<IWorkoutSessionService, WorkoutSessionService>();
 
         // --- Назар: відстеження тренувань, RPG-прогрес, лідерборд, медалі та аналітика м'язів ---
