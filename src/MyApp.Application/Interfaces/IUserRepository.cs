@@ -41,6 +41,13 @@ namespace MyApp.Application.Interfaces
             int? divisionId,
             CancellationToken ct = default);
 
+        Task<IReadOnlyList<GymClubStatsDto>> GetGymClubStatsAsync(
+            int? regionId,
+            int? divisionId,
+            CancellationToken ct = default);
+
+        Task<Gym> AddGymAsync(int regionId, string name, CancellationToken ct = default);
+
         Task<IReadOnlyList<GymRosterMemberDto>> GetGymRosterAsync(int? gymId, int? divisionId);
 
         Task<bool> UpdateModerationStatusAsync(
