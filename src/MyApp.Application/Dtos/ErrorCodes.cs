@@ -20,4 +20,6 @@ public static class ErrorCodes
     public const string ModerationAccessDenied = "MODERATION_ACCESS_DENIED";
     public const string CannotModerateSelf = "CANNOT_MODERATE_SELF";
     public const string CannotModerateTrainerOrAdmin = "CANNOT_MODERATE_TRAINER_OR_ADMIN";
+    public const string RecordNotFound = "RecordNotFound";
+    public const string RecordAccessDenied = "RecordAccessDenied";
 }

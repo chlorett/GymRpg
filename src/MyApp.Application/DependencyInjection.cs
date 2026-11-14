@@ -22,12 +22,13 @@ public static class DependencyInjection
         services.AddScoped<IUserProfileService, UserProfileService>();
         services.AddScoped<IWorkoutSessionService, WorkoutSessionService>();
 
-        // --- Назар: відстеження тренувань, RPG-прогрес, лідерборд, медалі та аналітика м'язів ---
+        // --- Назар: відстеження тренувань, RPG-прогрес, лідерборд, медалі, аналітика м'язів та рекорди ---
         services.AddTransient<Interfaces.IWorkoutTrackingService, Services.WorkoutTrackingService>();
         services.AddTransient<Interfaces.IUserProgressService, Services.UserProgressService>();
         services.AddTransient<Interfaces.ILeaderboardService, Services.LeaderboardService>();
         services.AddTransient<Interfaces.IMedalService, Services.MedalService>();
         services.AddTransient<Interfaces.IMuscleLoadService, Services.MuscleLoadService>();
+        services.AddTransient<Interfaces.IPersonalRecordService, Services.PersonalRecordService>();
         return services;
     }
 }

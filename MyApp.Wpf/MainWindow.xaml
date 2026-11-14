@@ -106,6 +106,8 @@
                                     Click="OnMedalsClick" />
                             <Button Content="Аналітика м'язів" Style="{StaticResource MenuItemButton}"
                                     Click="OnMuscleLoadClick" />
+                            <Button Content="Історія та рекорди (PR)" Style="{StaticResource MenuItemButton}"
+                                    Click="OnPersonalRecordsClick" />
                         </StackPanel>
                     </Border>
 

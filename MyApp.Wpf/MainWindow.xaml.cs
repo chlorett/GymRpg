@@ -51,6 +51,9 @@ public partial class MainWindow : Window
     private void OnMuscleLoadClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<MuscleLoadWindow>().Show();
 
+    private void OnPersonalRecordsClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<PersonalRecordsWindow>().Show();
+
     private void OnCreateTemplateClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<CreateTemplateWindow>().Show();
 
