@@ -40,7 +40,7 @@ public sealed class WorkoutRecordRepository : IWorkoutRecordRepository
         {
             if (!dbSaved && record.Id == 0)
             {
-                record.Id = InMemRecords.Count + 1;
+                record.Id = InMemRecords.Count > 0 ? InMemRecords.Max(r => r.Id) + 1 : 1;
             }
 
             InMemRecords.Add(record);
@@ -82,6 +82,34 @@ public sealed class WorkoutRecordRepository : IWorkoutRecordRepository
                 .OrderByDescending(r => r.CreatedAt)
                 .Take(count)
                 .ToList();
+        }
+    }
+
+    internal static IReadOnlyList<WorkoutRecord> GetInMemoryByUserId(int userId)
+    {
+        lock (InMemRecords)
+        {
+            return InMemRecords
+                .Where(r => r.Session?.Workout?.UserId == userId)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToList();
+        }
+    }
+
+    internal static WorkoutRecord? GetInMemoryById(int recordId)
+    {
+        lock (InMemRecords)
+        {
+            return InMemRecords.Find(r => r.Id == recordId);
+        }
+    }
+
+    internal static bool RemoveInMemory(int recordId)
+    {
+        lock (InMemRecords)
+        {
+            int removed = InMemRecords.RemoveAll(r => r.Id == recordId);
+            return removed > 0;
         }
     }
 }
