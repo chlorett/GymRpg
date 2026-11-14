@@ -42,6 +42,9 @@ public sealed class UserRepository : IUserRepository
         },
     };
 
+    // Зали, додані в резервному режимі (коли PostgreSQL недоступний).
+    private static readonly List<Gym> InMemGyms = new();
+
     private readonly AppDbContext _db;
     private readonly ILogger<UserRepository> _logger;
 
@@ -270,7 +273,7 @@ public sealed class UserRepository : IUserRepository
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Помилка зв'язку з БД при завантаженні спортзалів, використовуємо довідник за замовчуванням");
-            return AffiliationSeedData.CreateFallbackGyms();
+            return GetFallbackGyms();
         }
     }
 
@@ -356,6 +359,82 @@ public sealed class UserRepository : IUserRepository
         }
     }
 
+    public async Task<IReadOnlyList<GymClubStatsDto>> GetGymClubStatsAsync(
+        int? regionId,
+        int? divisionId,
+        CancellationToken ct = default)
+    {
+        _logger.LogDebug("Loading gym club stats: region {RegionId}, division {DivisionId}", regionId, divisionId);
+
+        try
+        {
+            var gymsQuery = _db.Gyms.AsNoTracking().AsQueryable();
+            if (regionId is { } rid)
+            {
+                gymsQuery = gymsQuery.Where(g => g.RegionId == rid);
+            }
+
+            var gyms = await gymsQuery
+                .Select(g => new GymRow(g.Id, g.Name, g.RegionId, g.Region.Name))
+                .ToListAsync(ct);
+
+            // Лише чесні атлети: не заблоковані й не виключені з лідерборду.
+            var athletesQuery = _db.Users
+                .AsNoTracking()
+                .Where(u => u.GymId != null && !u.IsBlocked && !u.IsExcludedFromLeaderboard);
+            if (divisionId is { } did)
+            {
+                athletesQuery = athletesQuery.Where(u => u.DivisionId == did);
+            }
+
+            var athletes = await athletesQuery
+                .Select(u => new AthleteRow(
+                    u.GymId!.Value,
+                    u.Username,
+                    u.UserProgress == null ? 0L : u.UserProgress.Xp))
+                .ToListAsync(ct);
+
+            return BuildClubStats(gyms, athletes);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка зв'язку з БД при завантаженні рейтингу спортзалів, рахуємо з локальних даних");
+        }
+
+        return BuildFallbackClubStats(regionId, divisionId);
+    }
+
+    public async Task<Gym> AddGymAsync(int regionId, string name, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        _logger.LogDebug("Saving gym {GymName} in region {RegionId}", name, regionId);
+
+        var gym = new Gym { RegionId = regionId, Name = name };
+
+        try
+        {
+            _db.Gyms.Add(gym);
+            await _db.SaveChangesAsync(ct);
+            return gym;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Помилка збереження спортзалу в БД, зберігаємо в локальний список");
+
+            // Невдала сутність не повинна залишитись у відстежуваному контексті.
+            _db.Entry(gym).State = EntityState.Detached;
+        }
+
+        lock (InMemGyms)
+        {
+            var maxId = GetFallbackGyms().Max(g => g.Id);
+            gym.Id = maxId + 1;
+            InMemGyms.Add(gym);
+            return gym;
+        }
+    }
+
     public async Task<IReadOnlyList<GymRosterMemberDto>> GetGymRosterAsync(int? gymId, int? divisionId)
     {
         var query = _db.Users.AsQueryable();
@@ -425,6 +504,71 @@ public sealed class UserRepository : IUserRepository
         }
     }
 
+    private static List<Gym> GetFallbackGyms()
+    {
+        var gyms = AffiliationSeedData.CreateFallbackGyms().ToList();
+
+        lock (InMemGyms)
+        {
+            gyms.AddRange(InMemGyms);
+        }
+
+        return gyms;
+    }
+
+    private static List<GymClubStatsDto> BuildClubStats(IReadOnlyList<GymRow> gyms, IReadOnlyList<AthleteRow> athletes)
+    {
+        var byGym = athletes.ToLookup(a => a.GymId);
+
+        return gyms
+            .Select(g =>
+            {
+                var members = byGym[g.Id].ToList();
+                var leader = members
+                    .OrderByDescending(m => m.Xp)
+                    .ThenBy(m => m.Username, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+
+                return new GymClubStatsDto(
+                    g.Id,
+                    g.Name,
+                    g.RegionId,
+                    g.RegionName,
+                    members.Count,
+                    members.Sum(m => m.Xp),
+                    leader?.Username);
+            })
+            .ToList();
+    }
+
+    private static List<GymClubStatsDto> BuildFallbackClubStats(int? regionId, int? divisionId)
+    {
+        var regionNames = AffiliationSeedData.CreateFallbackRegions().ToDictionary(r => r.Id, r => r.Name);
+
+        var gyms = GetFallbackGyms()
+            .Where(g => regionId is null || g.RegionId == regionId)
+            .Select(g => new GymRow(
+                g.Id,
+                g.Name,
+                g.RegionId,
+                regionNames.GetValueOrDefault(g.RegionId, string.Empty)))
+            .ToList();
+
+        List<AthleteRow> athletes;
+        lock (InMemUsers)
+        {
+            athletes = InMemUsers
+                .Where(u => u.GymId != null
+                    && !u.IsBlocked
+                    && !u.IsExcludedFromLeaderboard
+                    && (divisionId is null || u.DivisionId == divisionId))
+                .Select(u => new AthleteRow(u.GymId!.Value, u.Username, u.UserProgress?.Xp ?? 0L))
+                .ToList();
+        }
+
+        return BuildClubStats(gyms, athletes);
+    }
+
     private static void ApplyProfile(User user, decimal? weightKg, decimal? heightCm, DateOnly? birthDate)
     {
         if (weightKg is not null)
@@ -458,4 +602,8 @@ public sealed class UserRepository : IUserRepository
         user.DivisionId = divisionId;
         user.UpdatedAt = DateTimeOffset.UtcNow;
     }
+
+    private sealed record GymRow(int Id, string Name, int RegionId, string RegionName);
+
+    private sealed record AthleteRow(int GymId, string Username, long Xp);
 }

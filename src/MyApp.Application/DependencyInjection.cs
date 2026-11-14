@@ -15,6 +15,7 @@ public static class DependencyInjection
 
         // --- Денис: клубна приналежність ---
         services.AddTransient<IAccountAffiliationService, AccountAffiliationService>();
+        services.AddTransient<IGymStandingsService, GymStandingsService>();
 
         // --- Софія: шаблони тренувань, профіль користувача ---
         services.AddTransient<IWorkoutTemplateService, WorkoutTemplateService>();

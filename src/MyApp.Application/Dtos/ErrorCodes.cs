@@ -17,6 +17,8 @@ public static class ErrorCodes
     public const string SessionNotFound = "SessionNotFound";
     public const string SessionAccessDenied = "SessionAccessDenied";
     public const string InvalidSessionStatusTransition = "InvalidSessionStatusTransition";
+    public const string GymNameTaken = "GymNameTaken";
+    public const string RegionNotFound = "RegionNotFound";
     public const string ModerationAccessDenied = "MODERATION_ACCESS_DENIED";
     public const string CannotModerateSelf = "CANNOT_MODERATE_SELF";
     public const string CannotModerateTrainerOrAdmin = "CANNOT_MODERATE_TRAINER_OR_ADMIN";

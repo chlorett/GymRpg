@@ -52,3 +52,6 @@ public sealed record ScheduleWorkoutSessionRequest(
 
 public sealed record UpdateSessionStatusRequest(
     int UserId, int SessionId, SessionStatus NewStatus);
+
+public sealed record RegisterGymRequest(
+    int UserId, int RegionId, string Name);
