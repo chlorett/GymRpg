@@ -7,6 +7,7 @@ namespace MyApp.Domain.Enums
     public enum EquipmentType
     {
         Gym,
-        Calisthenics
+        Calisthenics,
+        Other
     }
 }
