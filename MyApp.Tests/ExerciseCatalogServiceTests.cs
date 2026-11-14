@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
 using Moq;
+using MyApp.Application.Dtos;
 using MyApp.Application.Interfaces;
 using MyApp.Application.Services;
 using MyApp.Domain.Entities;
@@ -19,6 +21,8 @@ public class ExerciseCatalogServiceTests
     };
 
     private readonly FakeLogger<ExerciseCatalogService> logger = new();
+    private readonly FakeLogger<ExerciseCatalogService> managementLogger = new();
+    private readonly Mock<IExerciseRepository> managementRepository = new();
     private readonly ExerciseCatalogService service;
 
     public ExerciseCatalogServiceTests()
@@ -84,4 +88,172 @@ public class ExerciseCatalogServiceTests
 
         Assert.Equal(2, this.logger.Collector.Count);
     }
+
+    [Fact]
+    public async Task SaveExerciseAsync_Trainer_CreatesExercise()
+    {
+        var management = this.CreateManagementService();
+
+        var result = await management.SaveExerciseAsync(NewRequest(), UserRole.Trainer);
+
+        Assert.True(result.IsSuccess);
+        this.managementRepository.Verify(
+            r => r.AddAsync(
+                It.Is<Exercise>(e => e.Name == "Жим гантелей" && e.EquipmentType == EquipmentType.Gym),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task SaveExerciseAsync_RegularUser_FailsWithNotATrainer()
+    {
+        var management = this.CreateManagementService();
+
+        var result = await management.SaveExerciseAsync(NewRequest(), UserRole.User);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.NotATrainer, result.ErrorCode);
+        this.managementRepository.Verify(
+            r => r.AddAsync(It.IsAny<Exercise>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        this.AssertWarningLogged();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("ab")]
+    public async Task SaveExerciseAsync_InvalidName_FailsWithValidationError(string name)
+    {
+        var management = this.CreateManagementService();
+
+        var result = await management.SaveExerciseAsync(NewRequest(name), UserRole.Trainer);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
+        Assert.Equal("Name", result.Field);
+        this.AssertWarningLogged();
+    }
+
+    [Fact]
+    public async Task SaveExerciseAsync_MissingTechnique_FailsWithValidationError()
+    {
+        var management = this.CreateManagementService();
+
+        var result = await management.SaveExerciseAsync(NewRequest(technique: " "), UserRole.Admin);
+
+        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
+        Assert.Equal("Technique", result.Field);
+    }
+
+    [Fact]
+    public async Task SaveExerciseAsync_NameTakenIgnoringCase_FailsWithNameTaken()
+    {
+        var management = this.CreateManagementService(
+            new Exercise { Id = 1, Name = "Жим гантелей", EquipmentType = EquipmentType.Gym });
+
+        var result = await management.SaveExerciseAsync(NewRequest("жим ГАНТЕЛЕЙ"), UserRole.Trainer);
+
+        Assert.Equal(ErrorCodes.ExerciseNameTaken, result.ErrorCode);
+        this.managementRepository.Verify(
+            r => r.AddAsync(It.IsAny<Exercise>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveExerciseAsync_ExistingExercise_UpdatesDescriptionAndTechnique()
+    {
+        var management = this.CreateManagementService();
+        this.managementRepository
+            .Setup(r => r.UpdateAsync(5, "Новий опис", "Нова техніка", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await management.SaveExerciseAsync(
+            new SaveExerciseRequest(5, "Армійський жим", EquipmentType.Gym, "Новий опис", "Нова техніка"),
+            UserRole.Trainer);
+
+        Assert.True(result.IsSuccess);
+        this.managementRepository.Verify(
+            r => r.UpdateAsync(5, "Новий опис", "Нова техніка", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task SaveExerciseAsync_UpdatingMissingExercise_FailsWithNotFound()
+    {
+        var management = this.CreateManagementService();
+        this.managementRepository
+            .Setup(r => r.UpdateAsync(99, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await management.SaveExerciseAsync(
+            new SaveExerciseRequest(99, "Невідома вправа", EquipmentType.Gym, "Опис", "Техніка"),
+            UserRole.Trainer);
+
+        Assert.Equal(ErrorCodes.ExerciseNotFound, result.ErrorCode);
+        this.AssertWarningLogged();
+    }
+
+    [Fact]
+    public async Task ArchiveExerciseAsync_Admin_SoftDeletesExercise()
+    {
+        var management = this.CreateManagementService();
+        this.managementRepository
+            .Setup(r => r.SoftDeleteAsync(3, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await management.ArchiveExerciseAsync(3, UserRole.Admin);
+
+        Assert.True(result.IsSuccess);
+        this.managementRepository.Verify(
+            r => r.SoftDeleteAsync(3, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ArchiveExerciseAsync_NotFoundOrAlreadyDeleted_FailsWithNotFound()
+    {
+        var management = this.CreateManagementService();
+        this.managementRepository
+            .Setup(r => r.SoftDeleteAsync(42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await management.ArchiveExerciseAsync(42, UserRole.Trainer);
+
+        Assert.Equal(ErrorCodes.ExerciseNotFound, result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ArchiveExerciseAsync_RegularUser_FailsWithNotATrainer()
+    {
+        var management = this.CreateManagementService();
+
+        var result = await management.ArchiveExerciseAsync(3, UserRole.User);
+
+        Assert.Equal(ErrorCodes.NotATrainer, result.ErrorCode);
+        this.managementRepository.Verify(
+            r => r.SoftDeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    private static SaveExerciseRequest NewRequest(
+        string name = "Жим гантелей",
+        string? technique = "Опускайте гантелі підконтрольно.") =>
+        new(null, name, EquipmentType.Gym, "Опис", technique);
+
+    private ExerciseCatalogService CreateManagementService(params Exercise[] existing)
+    {
+        this.managementRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+        this.managementRepository
+            .Setup(r => r.AddAsync(It.IsAny<Exercise>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Exercise e, CancellationToken _) => e);
+        return new ExerciseCatalogService(this.managementRepository.Object, this.managementLogger);
+    }
+
+    private void AssertWarningLogged() =>
+        Assert.Contains(
+            this.managementLogger.Collector.GetSnapshot(),
+            record => record.Level == LogLevel.Warning);
 }
