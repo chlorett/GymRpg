@@ -27,7 +27,7 @@ public sealed class ExerciseCatalogService : IExerciseCatalogService
         this.logger = logger;
     }
 
-    public async Task<IReadOnlyList<ExerciseCatalogItemDto>> GetExercisesAsync(
+    public async Task<OperationResult<IReadOnlyList<ExerciseCatalogItemDto>>> GetExercisesAsync(
         string? searchQuery,
         EquipmentType? equipmentType,
         CancellationToken ct = default)
@@ -41,7 +41,10 @@ public sealed class ExerciseCatalogService : IExerciseCatalogService
                 ErrorCodes.ValidationFailed,
                 query.Length,
                 MaxSearchQueryLength);
-            return Array.Empty<ExerciseCatalogItemDto>();
+            return OperationResult.Fail<IReadOnlyList<ExerciseCatalogItemDto>>(
+                ErrorCodes.ValidationFailed,
+                nameof(searchQuery),
+                $"Довжина пошукового запиту не може перевищувати {MaxSearchQueryLength} символів.");
         }
 
         if (equipmentType is { } eq && !Enum.IsDefined(eq))
@@ -50,7 +53,10 @@ public sealed class ExerciseCatalogService : IExerciseCatalogService
                 "Помилка валідації фільтра каталогу вправ [{ErrorCode}]: невідомий тип обладнання {EquipmentType}",
                 ErrorCodes.ValidationFailed,
                 eq);
-            return Array.Empty<ExerciseCatalogItemDto>();
+            return OperationResult.Fail<IReadOnlyList<ExerciseCatalogItemDto>>(
+                ErrorCodes.ValidationFailed,
+                nameof(equipmentType),
+                "Невідомий тип обладнання.");
         }
 
         this.logger.LogInformation(
@@ -60,7 +66,7 @@ public sealed class ExerciseCatalogService : IExerciseCatalogService
 
         var exercises = await this.repository.GetAllAsync(ct).ConfigureAwait(false);
 
-        var result = exercises
+        IReadOnlyList<ExerciseCatalogItemDto> result = exercises
             .Where(e => !e.IsDeleted)
             .Where(e => equipmentType is null || e.EquipmentType == equipmentType)
             .Where(e => string.IsNullOrEmpty(query) || Matches(e, query))
@@ -72,7 +78,7 @@ public sealed class ExerciseCatalogService : IExerciseCatalogService
             "Результат фільтрації каталогу вправ: знайдено {Count}",
             result.Count);
 
-        return result;
+        return OperationResult.Success(result);
     }
 
     public async Task<OperationResult> SaveExerciseAsync(

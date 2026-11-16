@@ -39,7 +39,8 @@ public class ExerciseCatalogServiceTests
     {
         var result = await this.service.GetExercisesAsync(null, null);
 
-        Assert.Equal(4, result.Count);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(4, result.Value!.Count);
     }
 
     [Theory]
@@ -50,7 +51,8 @@ public class ExerciseCatalogServiceTests
     {
         var result = await this.service.GetExercisesAsync(query, null);
 
-        var item = Assert.Single(result);
+        Assert.True(result.IsSuccess);
+        var item = Assert.Single(result.Value!);
         Assert.Equal("Жим лежачи на лаві", item.Name);
     }
 
@@ -59,9 +61,11 @@ public class ExerciseCatalogServiceTests
     {
         var result = await this.service.GetExercisesAsync(null, EquipmentType.Calisthenics);
 
-        Assert.Equal(2, result.Count);
-        Assert.All(result, i => Assert.Equal(EquipmentType.Calisthenics, i.EquipmentType));
-        Assert.All(result, i => Assert.Equal("Калістеніка / Власна вага", i.EquipmentLabel));
+        Assert.True(result.IsSuccess);
+        var items = result.Value!;
+        Assert.Equal(2, items.Count);
+        Assert.All(items, i => Assert.Equal(EquipmentType.Calisthenics, i.EquipmentType));
+        Assert.All(items, i => Assert.Equal("Калістеніка / Власна вага", i.EquipmentLabel));
     }
 
     [Fact]
@@ -69,7 +73,8 @@ public class ExerciseCatalogServiceTests
     {
         var result = await this.service.GetExercisesAsync("трицепс", EquipmentType.Calisthenics);
 
-        var item = Assert.Single(result);
+        Assert.True(result.IsSuccess);
+        var item = Assert.Single(result.Value!);
         Assert.Equal("Віджимання на брусах", item.Name);
     }
 
@@ -78,7 +83,8 @@ public class ExerciseCatalogServiceTests
     {
         var result = await this.service.GetExercisesAsync("неіснуюча вправа", null);
 
-        Assert.Empty(result);
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Value!);
     }
 
     [Fact]

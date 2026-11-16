@@ -47,7 +47,7 @@ public sealed class PersonalRecordService : IPersonalRecordService
         return Math.Round(weightKg * (1m + (reps / 30m)), 1);
     }
 
-    public async Task<PersonalRecordsOverviewDto> GetPersonalRecordsOverviewAsync(
+    public async Task<OperationResult<PersonalRecordsOverviewDto>> GetPersonalRecordsOverviewAsync(
         int userId,
         int? exerciseIdFilter = null,
         string? honestyFilter = null,
@@ -60,13 +60,23 @@ public sealed class PersonalRecordService : IPersonalRecordService
                 userId,
                 ErrorCodes.ValidationFailed);
 
-            return new PersonalRecordsOverviewDto(
-                0,
-                0,
-                0m,
-                "—",
-                Array.Empty<ExercisePersonalRecordDto>(),
-                Array.Empty<WorkoutLogEntryDto>());
+            return OperationResult.Fail<PersonalRecordsOverviewDto>(
+                ErrorCodes.ValidationFailed,
+                nameof(userId),
+                "Некоректний ідентифікатор користувача.");
+        }
+
+        if (exerciseIdFilter is <= 0)
+        {
+            _logger.LogWarning(
+                "Personal records overview requested with invalid exerciseIdFilter: {ExerciseIdFilter} [{ErrorCode}]",
+                exerciseIdFilter,
+                ErrorCodes.ValidationFailed);
+
+            return OperationResult.Fail<PersonalRecordsOverviewDto>(
+                ErrorCodes.ValidationFailed,
+                nameof(exerciseIdFilter),
+                "Некоректний фільтр вправи.");
         }
 
         _logger.LogDebug(
@@ -107,16 +117,18 @@ public sealed class PersonalRecordService : IPersonalRecordService
             bestOneRepMax,
             bestExerciseName);
 
-        return new PersonalRecordsOverviewDto(
+        var overview = new PersonalRecordsOverviewDto(
             TotalWorkoutsLogged: records.Count,
             ExercisesWithRecordsCount: allPersonalRecords.Count,
             BestOneRepMaxKg: bestOneRepMax,
             BestExerciseName: bestExerciseName,
             PersonalRecords: filteredPersonalRecords,
             WorkoutLogs: workoutLogs);
+
+        return OperationResult.Success(overview);
     }
 
-    public async Task<DeleteWorkoutRecordResultDto> DeleteWorkoutRecordAsync(
+    public async Task<OperationResult<DeleteWorkoutRecordResultDto>> DeleteWorkoutRecordAsync(
         int userId,
         int recordId,
         CancellationToken ct = default)
@@ -207,11 +219,10 @@ public sealed class PersonalRecordService : IPersonalRecordService
             adjustedXp,
             newLevel);
 
-        return new DeleteWorkoutRecordResultDto(
-            OperationResult.Success(),
+        return OperationResult.Success(new DeleteWorkoutRecordResultDto(
             recordId,
             adjustedXp,
-            newLevel);
+            newLevel));
     }
 
     private static List<ExercisePersonalRecordDto> BuildPersonalRecords(
@@ -367,7 +378,7 @@ public sealed class PersonalRecordService : IPersonalRecordService
         return $"Вправа #{record.ExerciseId}";
     }
 
-    private DeleteWorkoutRecordResultDto RejectDelete(
+    private OperationResult<DeleteWorkoutRecordResultDto> RejectDelete(
         string errorCode,
         string field,
         string message,
@@ -382,7 +393,6 @@ public sealed class PersonalRecordService : IPersonalRecordService
             field,
             message);
 
-        var failure = OperationResult.Fail(errorCode, field, message);
-        return new DeleteWorkoutRecordResultDto(failure, recordId, 0, 0);
+        return OperationResult.Fail<DeleteWorkoutRecordResultDto>(errorCode, field, message);
     }
 }

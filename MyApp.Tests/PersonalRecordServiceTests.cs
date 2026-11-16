@@ -66,13 +66,28 @@ public sealed class PersonalRecordServiceTests
     [Theory]
     [InlineData(0)]
     [InlineData(-3)]
-    public async Task GetPersonalRecordsOverviewAsync_WhenUserIdInvalid_LogsWarningAndReturnsEmpty(int invalidUserId)
+    public async Task GetPersonalRecordsOverviewAsync_WhenUserIdInvalid_LogsWarningAndReturnsFailure(int invalidUserId)
     {
-        var overview = await _service.GetPersonalRecordsOverviewAsync(invalidUserId);
+        var result = await _service.GetPersonalRecordsOverviewAsync(invalidUserId);
 
-        Assert.Equal(0, overview.TotalWorkoutsLogged);
-        Assert.Empty(overview.PersonalRecords);
-        Assert.Empty(overview.WorkoutLogs);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
+        Assert.Equal("userId", result.Field);
+        Assert.Null(result.Value);
+        Assert.Contains(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task GetPersonalRecordsOverviewAsync_WhenExerciseFilterInvalid_LogsWarningAndReturnsFailure(int invalidExerciseId)
+    {
+        var result = await _service.GetPersonalRecordsOverviewAsync(AthleteId, invalidExerciseId);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
+        Assert.Equal("exerciseIdFilter", result.Field);
+        Assert.Null(result.Value);
         Assert.Contains(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
     }
 
@@ -83,7 +98,11 @@ public sealed class PersonalRecordServiceTests
             .Setup(r => r.GetAllByUserIdAsync(AthleteId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateSampleRecords());
 
-        var overview = await _service.GetPersonalRecordsOverviewAsync(AthleteId);
+        var result = await _service.GetPersonalRecordsOverviewAsync(AthleteId);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        var overview = result.Value!;
 
         Assert.Equal(3, overview.TotalWorkoutsLogged);
         Assert.Equal(2, overview.ExercisesWithRecordsCount);
@@ -105,10 +124,14 @@ public sealed class PersonalRecordServiceTests
             .Setup(r => r.GetAllByUserIdAsync(AthleteId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateSampleRecords());
 
-        var overview = await _service.GetPersonalRecordsOverviewAsync(
+        var result = await _service.GetPersonalRecordsOverviewAsync(
             AthleteId,
             exerciseIdFilter: BenchPressId,
             honestyFilter: "Підозрілі");
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        var overview = result.Value!;
 
         Assert.Single(overview.WorkoutLogs);
         Assert.True(overview.WorkoutLogs[0].IsSuspicious);
@@ -128,9 +151,10 @@ public sealed class PersonalRecordServiceTests
     {
         var result = await _service.DeleteWorkoutRecordAsync(userId, recordId);
 
-        Assert.False(result.Result.IsSuccess);
-        Assert.Equal(ErrorCodes.ValidationFailed, result.Result.ErrorCode);
-        Assert.Equal(expectedField, result.Result.Field);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
+        Assert.Equal(expectedField, result.Field);
+        Assert.Null(result.Value);
         Assert.Contains(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
         _recordRepository.Verify(r => r.DeleteRecordAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -144,8 +168,9 @@ public sealed class PersonalRecordServiceTests
 
         var result = await _service.DeleteWorkoutRecordAsync(AthleteId, 100);
 
-        Assert.False(result.Result.IsSuccess);
-        Assert.Equal(ErrorCodes.UserNotFound, result.Result.ErrorCode);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.UserNotFound, result.ErrorCode);
+        Assert.Null(result.Value);
         Assert.Contains(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
     }
 
@@ -158,8 +183,9 @@ public sealed class PersonalRecordServiceTests
 
         var result = await _service.DeleteWorkoutRecordAsync(AthleteId, 999);
 
-        Assert.False(result.Result.IsSuccess);
-        Assert.Equal(ErrorCodes.RecordNotFound, result.Result.ErrorCode);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.RecordNotFound, result.ErrorCode);
+        Assert.Null(result.Value);
         Assert.Contains(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
     }
 
@@ -183,8 +209,9 @@ public sealed class PersonalRecordServiceTests
 
         var result = await _service.DeleteWorkoutRecordAsync(AthleteId, 55);
 
-        Assert.False(result.Result.IsSuccess);
-        Assert.Equal(ErrorCodes.RecordAccessDenied, result.Result.ErrorCode);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.RecordAccessDenied, result.ErrorCode);
+        Assert.Null(result.Value);
         Assert.Contains(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
         _recordRepository.Verify(r => r.DeleteRecordAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -223,10 +250,11 @@ public sealed class PersonalRecordServiceTests
 
         var result = await _service.DeleteWorkoutRecordAsync(AthleteId, 101);
 
-        Assert.True(result.Result.IsSuccess);
-        Assert.Equal(101, result.DeletedRecordId);
-        Assert.Equal(900, result.AdjustedXp);
-        Assert.Equal(1, result.NewLevel);
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(101, result.Value!.DeletedRecordId);
+        Assert.Equal(900, result.Value.AdjustedXp);
+        Assert.Equal(1, result.Value.NewLevel);
         _progressRepository.Verify(
             p => p.SaveAsync(
                 It.Is<UserProgress>(up => up.Xp == 900 && up.Level == 1),

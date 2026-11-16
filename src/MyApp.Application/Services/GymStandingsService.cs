@@ -20,12 +20,36 @@ public sealed class GymStandingsService : IGymStandingsService
         _logger = logger;
     }
 
-    public async Task<GymStandingsOverviewDto> GetStandingsAsync(
+    public async Task<OperationResult<GymStandingsOverviewDto>> GetStandingsAsync(
         int userId,
         int? regionId,
         int? divisionId,
         CancellationToken ct = default)
     {
+        if (regionId is <= 0)
+        {
+            _logger.LogWarning(
+                "Gym standings rejected: invalid regionId {RegionId} [{ErrorCode}]",
+                regionId,
+                ErrorCodes.ValidationFailed);
+            return OperationResult.Fail<GymStandingsOverviewDto>(
+                ErrorCodes.ValidationFailed,
+                nameof(regionId),
+                "Некоректний ідентифікатор регіону.");
+        }
+
+        if (divisionId is <= 0)
+        {
+            _logger.LogWarning(
+                "Gym standings rejected: invalid divisionId {DivisionId} [{ErrorCode}]",
+                divisionId,
+                ErrorCodes.ValidationFailed);
+            return OperationResult.Fail<GymStandingsOverviewDto>(
+                ErrorCodes.ValidationFailed,
+                nameof(divisionId),
+                "Некоректний ідентифікатор дивізіону.");
+        }
+
         var stats = await _users.GetGymClubStatsAsync(regionId, divisionId, ct);
 
         // При фільтрі за дивізіоном залишаємо лише зали, де є атлети цього дивізіону.
@@ -66,10 +90,11 @@ public sealed class GymStandingsService : IGymStandingsService
             regionId,
             divisionId);
 
-        return new GymStandingsOverviewDto(standings, regions, divisions, canRegister);
+        var overview = new GymStandingsOverviewDto(standings, regions, divisions, canRegister);
+        return OperationResult.Success(overview);
     }
 
-    public async Task<OperationResult> RegisterGymAsync(RegisterGymRequest request, CancellationToken ct = default)
+    public async Task<OperationResult<GymDto>> RegisterGymAsync(RegisterGymRequest request, CancellationToken ct = default)
     {
         if (request is null)
         {
@@ -77,13 +102,13 @@ public sealed class GymStandingsService : IGymStandingsService
                 "Gym registration rejected: error {ErrorCode}, field {Field}",
                 ErrorCodes.ValidationFailed,
                 nameof(request));
-            return OperationResult.Fail(ErrorCodes.ValidationFailed, nameof(request), "Запит не може бути порожнім.");
+            return OperationResult.Fail<GymDto>(ErrorCodes.ValidationFailed, nameof(request), "Запит не може бути порожнім.");
         }
 
         var user = request.UserId > 0 ? await _users.GetByIdAsync(request.UserId, ct) : null;
         if (user is null || user.Role == UserRole.User)
         {
-            var denied = OperationResult.Fail(
+            var denied = OperationResult.Fail<GymDto>(
                 ErrorCodes.ModerationAccessDenied,
                 nameof(RegisterGymRequest.UserId),
                 "Реєструвати спортзали можуть лише тренери та адміністратори.");
@@ -95,20 +120,20 @@ public sealed class GymStandingsService : IGymStandingsService
         var nameError = GetNameError(name);
         if (nameError is not null)
         {
-            var invalidName = OperationResult.Fail(ErrorCodes.ValidationFailed, nameof(RegisterGymRequest.Name), nameError);
+            var invalidName = OperationResult.Fail<GymDto>(ErrorCodes.ValidationFailed, nameof(RegisterGymRequest.Name), nameError);
             return Reject(invalidName, request.UserId);
         }
 
         if (request.RegionId <= 0)
         {
-            var noRegion = OperationResult.Fail(ErrorCodes.ValidationFailed, nameof(RegisterGymRequest.RegionId), "Оберіть регіон.");
+            var noRegion = OperationResult.Fail<GymDto>(ErrorCodes.ValidationFailed, nameof(RegisterGymRequest.RegionId), "Оберіть регіон.");
             return Reject(noRegion, request.UserId);
         }
 
         var regions = await _users.GetRegionsAsync(ct);
         if (!regions.Any(r => r.Id == request.RegionId))
         {
-            var missingRegion = OperationResult.Fail(ErrorCodes.RegionNotFound, nameof(RegisterGymRequest.RegionId), "Обраного регіону не існує.");
+            var missingRegion = OperationResult.Fail<GymDto>(ErrorCodes.RegionNotFound, nameof(RegisterGymRequest.RegionId), "Обраного регіону не існує.");
             return Reject(missingRegion, request.UserId);
         }
 
@@ -118,7 +143,7 @@ public sealed class GymStandingsService : IGymStandingsService
             string.Equals(g.Name.Trim(), name, StringComparison.CurrentCultureIgnoreCase));
         if (duplicate)
         {
-            var taken = OperationResult.Fail(ErrorCodes.GymNameTaken, nameof(RegisterGymRequest.Name), "Спортзал з такою назвою вже є в цьому регіоні.");
+            var taken = OperationResult.Fail<GymDto>(ErrorCodes.GymNameTaken, nameof(RegisterGymRequest.Name), "Спортзал з такою назвою вже є в цьому регіоні.");
             return Reject(taken, request.UserId);
         }
 
@@ -130,7 +155,7 @@ public sealed class GymStandingsService : IGymStandingsService
             created.Id,
             request.RegionId);
 
-        return OperationResult.Success();
+        return OperationResult.Success(new GymDto(created.Id, created.RegionId, created.Name));
     }
 
     private static long CalculateAverage(long totalXp, int athletes)
@@ -157,7 +182,7 @@ public sealed class GymStandingsService : IGymStandingsService
             : null;
     }
 
-    private OperationResult Reject(OperationResult result, int userId)
+    private OperationResult<GymDto> Reject(OperationResult<GymDto> result, int userId)
     {
         _logger.LogWarning(
             "Gym registration rejected for {UserId}: error {ErrorCode}, field {Field}",

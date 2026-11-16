@@ -25,6 +25,9 @@ dotnet_diagnostic.SA1402.severity = none
 dotnet_diagnostic.SA1649.severity = none
 dotnet_diagnostic.SA1601.severity = none
 
+[**/Dtos/OperationResult.cs]
+dotnet_diagnostic.SA1402.severity = none
+
 # Автогенерований за шаблоном файл WPF, не редагуємо
 [**/AssemblyInfo.cs]
 generated_code = true

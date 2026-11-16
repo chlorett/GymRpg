@@ -4,11 +4,11 @@ namespace MyApp.Application.Interfaces;
 
 public interface IGymStandingsService
 {
-    Task<GymStandingsOverviewDto> GetStandingsAsync(
+    Task<OperationResult<GymStandingsOverviewDto>> GetStandingsAsync(
         int userId,
         int? regionId,
         int? divisionId,
         CancellationToken ct = default);
 
-    Task<OperationResult> RegisterGymAsync(RegisterGymRequest request, CancellationToken ct = default);
+    Task<OperationResult<GymDto>> RegisterGymAsync(RegisterGymRequest request, CancellationToken ct = default);
 }

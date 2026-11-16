@@ -162,11 +162,22 @@ public sealed class GymStandingsViewModel : ObservableObject
 
         try
         {
-            var overview = await _standings.GetStandingsAsync(
+            var result = await _standings.GetStandingsAsync(
                 _userSession.UserId,
                 FilterRegion?.Id,
                 FilterDivision?.Id);
 
+            if (!result.IsSuccess || result.Value is null)
+            {
+                _logger.LogWarning(
+                    "Помилка валідації при завантаженні рейтингу спортзалів: {ErrorCode}, поле {Field}",
+                    result.ErrorCode,
+                    result.Field);
+                GeneralError = result.Message ?? "Не вдалося завантажити рейтинг.";
+                return;
+            }
+
+            var overview = result.Value;
             Standings.Clear();
             foreach (var row in overview.Standings)
             {

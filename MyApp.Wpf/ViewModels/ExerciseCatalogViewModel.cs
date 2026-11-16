@@ -135,7 +135,15 @@ public sealed partial class ExerciseCatalogViewModel : ObservableObject
         }
 
         var selectedId = this.SelectedExercise?.Id;
-        var items = await this.service.GetExercisesAsync(this.SearchText, this.SelectedFilter.Value, ct);
+        var result = await this.service.GetExercisesAsync(this.SearchText, this.SelectedFilter.Value, ct);
+        var items = result.IsSuccess && result.Value is not null
+            ? result.Value
+            : Array.Empty<ExerciseCatalogItemDto>();
+
+        if (!result.IsSuccess)
+        {
+            this.ErrorMessage = result.Message;
+        }
 
         this.Exercises.Clear();
         foreach (var item in items)

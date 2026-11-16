@@ -183,11 +183,23 @@ public sealed class PersonalRecordsViewModel : ObservableObject
             }
 
             int? exerciseFilter = SelectedExerciseId > 0 ? SelectedExerciseId : null;
-            var overview = await _personalRecordService.GetPersonalRecordsOverviewAsync(
+            var result = await _personalRecordService.GetPersonalRecordsOverviewAsync(
                 _userSession.UserId,
                 exerciseFilter,
                 SelectedHonestyFilter);
 
+            if (!result.IsSuccess || result.Value is null)
+            {
+                _logger.LogWarning(
+                    "Помилка завантаження історії та рекордів для UserId={UserId}: [{ErrorCode}] {Message}",
+                    _userSession.UserId,
+                    result.ErrorCode,
+                    result.Message);
+                ErrorMessage = result.Message ?? "Не вдалося завантажити історію тренувань та особисті рекорди.";
+                return;
+            }
+
+            var overview = result.Value;
             TotalWorkoutsLogged = overview.TotalWorkoutsLogged;
             ExercisesWithRecordsCount = overview.ExercisesWithRecordsCount;
             BestOneRepMaxKg = overview.BestOneRepMaxKg;
@@ -251,20 +263,21 @@ public sealed class PersonalRecordsViewModel : ObservableObject
                 _userSession.UserId,
                 targetRecordId);
 
-            if (!deleteResult.Result.IsSuccess)
+            if (!deleteResult.IsSuccess || deleteResult.Value is null)
             {
                 _logger.LogWarning(
                     "Помилка валідації при видаленні запису тренування RecordId={RecordId} для UserId={UserId}: [{ErrorCode}] Field={Field} Message={Message}",
                     targetRecordId,
                     _userSession.UserId,
-                    deleteResult.Result.ErrorCode,
-                    deleteResult.Result.Field,
-                    deleteResult.Result.Message);
-                ErrorMessage = deleteResult.Result.Message ?? "Не вдалося видалити запис із журналу.";
+                    deleteResult.ErrorCode,
+                    deleteResult.Field,
+                    deleteResult.Message);
+                ErrorMessage = deleteResult.Message ?? "Не вдалося видалити запис із журналу.";
                 return;
             }
 
-            StatusMessage = $"Запис вправи «{exerciseName}» (#{targetRecordId}) видалено з журналу. Актуальний прогрес: рівень {deleteResult.NewLevel} ({deleteResult.AdjustedXp} XP).";
+            var payload = deleteResult.Value;
+            StatusMessage = $"Запис вправи «{exerciseName}» (#{targetRecordId}) видалено з журналу. Актуальний прогрес: рівень {payload.NewLevel} ({payload.AdjustedXp} XP).";
             await LoadOverviewAsync(preserveStatus: true);
         }
         catch (Exception ex)

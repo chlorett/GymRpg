@@ -52,8 +52,10 @@ public sealed class GymStandingsServiceTests
     [Fact]
     public async Task GetStandingsAsync_SortsByTotalXpDescendingAndAssignsSequentialRanks()
     {
-        var overview = await _service.GetStandingsAsync(AthleteId, null, null);
+        var result = await _service.GetStandingsAsync(AthleteId, null, null);
 
+        Assert.True(result.IsSuccess);
+        var overview = result.Value!;
         Assert.Equal(new[] { 1, 2, 3 }, overview.Standings.Select(s => s.Rank));
         Assert.Equal(new[] { "Iron Temple", "Alpha Gym", "Empty Club" }, overview.Standings.Select(s => s.GymName));
     }
@@ -61,8 +63,9 @@ public sealed class GymStandingsServiceTests
     [Fact]
     public async Task GetStandingsAsync_CalculatesAverageXpPerAthlete()
     {
-        var overview = await _service.GetStandingsAsync(AthleteId, null, null);
+        var result = await _service.GetStandingsAsync(AthleteId, null, null);
 
+        var overview = result.Value!;
         var iron = overview.Standings.Single(s => s.GymName == "Iron Temple");
         var alpha = overview.Standings.Single(s => s.GymName == "Alpha Gym");
         var empty = overview.Standings.Single(s => s.GymName == "Empty Club");
@@ -81,16 +84,17 @@ public sealed class GymStandingsServiceTests
             .Setup(u => u.GetGymClubStatsAsync(It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<GymClubStatsDto> { new(1, "Solo", 1, "Київ", athletes, totalXp, "a") });
 
-        var overview = await _service.GetStandingsAsync(AthleteId, null, null);
+        var result = await _service.GetStandingsAsync(AthleteId, null, null);
 
-        Assert.Equal(expected, overview.Standings.Single().AverageXp);
+        Assert.Equal(expected, result.Value!.Standings.Single().AverageXp);
     }
 
     [Fact]
     public async Task GetStandingsAsync_WhenGymHasNoLeader_ShowsDash()
     {
-        var overview = await _service.GetStandingsAsync(AthleteId, null, null);
+        var result = await _service.GetStandingsAsync(AthleteId, null, null);
 
+        var overview = result.Value!;
         Assert.Equal("max_power", overview.Standings[0].LeaderNickname);
         Assert.Equal("—", overview.Standings[2].LeaderNickname);
     }
@@ -107,9 +111,9 @@ public sealed class GymStandingsServiceTests
                 new(3, "Aardvark", 1, "Київ", 1, 500, "c"),
             });
 
-        var overview = await _service.GetStandingsAsync(AthleteId, null, null);
+        var result = await _service.GetStandingsAsync(AthleteId, null, null);
 
-        Assert.Equal(new[] { "Alpha", "Aardvark", "Beta" }, overview.Standings.Select(s => s.GymName));
+        Assert.Equal(new[] { "Alpha", "Aardvark", "Beta" }, result.Value!.Standings.Select(s => s.GymName));
     }
 
     [Fact]
@@ -125,8 +129,9 @@ public sealed class GymStandingsServiceTests
     [Fact]
     public async Task GetStandingsAsync_WhenDivisionSelected_HidesGymsWithoutAthletes()
     {
-        var overview = await _service.GetStandingsAsync(AthleteId, null, 1);
+        var result = await _service.GetStandingsAsync(AthleteId, null, 1);
 
+        var overview = result.Value!;
         Assert.DoesNotContain(overview.Standings, s => s.GymName == "Empty Club");
         Assert.Equal(2, overview.Standings.Count);
     }
@@ -134,16 +139,17 @@ public sealed class GymStandingsServiceTests
     [Fact]
     public async Task GetStandingsAsync_WhenNoDivisionSelected_KeepsGymsWithoutAthletes()
     {
-        var overview = await _service.GetStandingsAsync(AthleteId, null, null);
+        var result = await _service.GetStandingsAsync(AthleteId, null, null);
 
-        Assert.Contains(overview.Standings, s => s.GymName == "Empty Club");
+        Assert.Contains(result.Value!.Standings, s => s.GymName == "Empty Club");
     }
 
     [Fact]
     public async Task GetStandingsAsync_ReturnsSortedRegionsAndDivisions()
     {
-        var overview = await _service.GetStandingsAsync(AthleteId, null, null);
+        var result = await _service.GetStandingsAsync(AthleteId, null, null);
 
+        var overview = result.Value!;
         Assert.Equal(new[] { "Київ", "Львівська область" }, overview.Regions.Select(r => r.Name));
         Assert.Single(overview.Divisions);
     }
@@ -155,9 +161,9 @@ public sealed class GymStandingsServiceTests
     [InlineData(0, false)]
     public async Task GetStandingsAsync_SetsCanRegisterGymsByRole(int userId, bool expected)
     {
-        var overview = await _service.GetStandingsAsync(userId, null, null);
+        var result = await _service.GetStandingsAsync(userId, null, null);
 
-        Assert.Equal(expected, overview.CanRegisterGyms);
+        Assert.Equal(expected, result.Value!.CanRegisterGyms);
     }
 
     [Fact]
