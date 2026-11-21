@@ -88,6 +88,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<MuscleLoadViewModel>();
         services.AddTransient<PersonalRecordsWindow>();
         services.AddTransient<PersonalRecordsViewModel>();
+        services.AddTransient<RecoveryWindow>();
+        services.AddTransient<RecoveryViewModel>();
 
         // --- Софія ---
         services.AddTransient<CreateTemplateWindow>();

@@ -57,6 +57,9 @@ public partial class MainWindow : Window
     private void OnPersonalRecordsClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<PersonalRecordsWindow>().Show();
 
+    private void OnRecoveryClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<RecoveryWindow>().Show();
+
     private void OnCreateTemplateClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<CreateTemplateWindow>().Show();
 
