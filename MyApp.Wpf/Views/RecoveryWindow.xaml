@@ -1,0 +1,204 @@
+<Window x:Class="MyApp.Wpf.Views.RecoveryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="clr-namespace:MyApp.Wpf.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=viewModels:RecoveryViewModel}"
+        Style="{StaticResource AppWindow}"
+        Title="Активність, Streak та відновлення атлета — PulseForge"
+        Height="740" Width="1080"
+        MinHeight="620" MinWidth="920"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Активність, серії тренувань (Streak) та індекс відновлення"
+                       Style="{StaticResource FormTitle}"
+                       Margin="0" />
+            <TextBlock Text="{Binding ReadinessSummaryText}"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Картки статистики (4 блоки) -->
+        <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,16">
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="ПОТОЧНА СЕРІЯ (STREAK)"
+                               FontSize="11"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding CurrentStreakDays, StringFormat={}{0} дн.}"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource AccentBrush}"
+                               Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding BestStreakDays, StringFormat=Рекорд серії: {0} дн.}"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,2,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Margin="4,0,4,0">
+                <StackPanel>
+                    <TextBlock Text="ІНДЕКС ГОТОВНОСТІ"
+                               FontSize="11"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding ReadinessScoreText}"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource SuccessBrush}"
+                               Margin="0,4,0,0" />
+                    <ProgressBar Value="{Binding ReadinessScorePercent, Mode=OneWay}"
+                                 Minimum="0"
+                                 Maximum="100"
+                                 Height="8"
+                                 Margin="0,6,0,0"
+                                 Foreground="{StaticResource SuccessBrush}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Margin="4,0,4,0">
+                <StackPanel>
+                    <TextBlock Text="ТРЕНУВАНЬ ЗА ПЕРІОД"
+                               FontSize="11"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding WorkoutsInPeriod}"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding TotalSetsInPeriod, StringFormat=Всього підходів: {0}}"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,2,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
+                <StackPanel>
+                    <TextBlock Text="ТОННАЖ ТА XP ЗА ПЕРІОД"
+                               FontSize="11"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding TotalVolumeInPeriodText}"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource AccentBrush}"
+                               Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding EarnedXpInPeriod, StringFormat=Здобуто: +{0} XP}"
+                               FontSize="12"
+                               Foreground="{StaticResource SuccessBrush}"
+                               FontWeight="SemiBold"
+                               Margin="0,2,0,0" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- Панель керування періодом та Deload -->
+        <Grid Grid.Row="2" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Період аналізу (днів)" Style="{StaticResource FieldLabel}" />
+                <ComboBox ItemsSource="{Binding PeriodDayOptions}"
+                          SelectedItem="{Binding SelectedPeriodDays}"
+                          Style="{StaticResource FieldComboBox}" />
+            </StackPanel>
+
+            <Button Grid.Column="2"
+                    Content="Оновити показники"
+                    Command="{Binding LoadOverviewCommand}"
+                    Style="{StaticResource SecondaryButton}"
+                    VerticalAlignment="Bottom"
+                    Padding="16,8" />
+
+            <Button Grid.Column="4"
+                    Content="Зареєструвати день відновлення (Deload -30% втоми)"
+                    Command="{Binding ApplyDeloadCommand}"
+                    Style="{StaticResource PrimaryButton}"
+                    VerticalAlignment="Bottom"
+                    Padding="18,8" />
+        </Grid>
+
+        <!-- Таблиця стану відновлення м'язових груп -->
+        <GroupBox Grid.Row="3"
+                  Header="Стан відновлення м'язових груп та рекомендації до тренування"
+                  Padding="8"
+                  Margin="0,0,0,12">
+            <DataGrid ItemsSource="{Binding MuscleRecoveryItems}"
+                      Style="{StaticResource AppDataGrid}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Група м'язів"
+                                        Binding="{Binding MuscleGroupName}"
+                                        Width="1.2*" />
+                    <DataGridTextColumn Header="Навантаження (од.)"
+                                        Binding="{Binding CurrentLoadValue, StringFormat={}{0:0.#}}"
+                                        Width="130" />
+                    <DataGridTextColumn Header="Втома (%)"
+                                        Binding="{Binding FatiguePercent, StringFormat={}{0}%}"
+                                        Width="100" />
+                    <DataGridTextColumn Header="Готовність (%)"
+                                        Binding="{Binding ReadinessPercent, StringFormat={}{0}%}"
+                                        Width="115" />
+                    <DataGridTextColumn Header="Статус відновлення"
+                                        Binding="{Binding RecoveryStatusText}"
+                                        Width="1.1*" />
+                    <DataGridTextColumn Header="Рекомендація тренера"
+                                        Binding="{Binding RecommendationText}"
+                                        Width="1.8*" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <!-- Нижній рядок статусу та кнопка закриття -->
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Style="{StaticResource FieldError}"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource SuccessBrush}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Button Grid.Column="1"
+                    Content="Закрити"
+                    Click="OnCloseClick"
+                    Style="{StaticResource SecondaryButton}"
+                    Padding="24,8" />
+        </Grid>
+    </Grid>
+</Window>

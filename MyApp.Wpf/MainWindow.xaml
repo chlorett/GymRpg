@@ -110,6 +110,8 @@
                                     Click="OnMuscleLoadClick" />
                             <Button Content="Історія та рекорди (PR)" Style="{StaticResource MenuItemButton}"
                                     Click="OnPersonalRecordsClick" />
+                            <Button Content="Активність та відновлення" Style="{StaticResource MenuItemButton}"
+                                    Click="OnRecoveryClick" />
                         </StackPanel>
                     </Border>
 
