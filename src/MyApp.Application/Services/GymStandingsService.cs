@@ -52,7 +52,6 @@ public sealed class GymStandingsService : IGymStandingsService
 
         var stats = await _users.GetGymClubStatsAsync(regionId, divisionId, ct);
 
-        // При фільтрі за дивізіоном залишаємо лише зали, де є атлети цього дивізіону.
         var visible = divisionId is null
             ? stats
             : stats.Where(s => s.ActiveAthletes > 0).ToList();

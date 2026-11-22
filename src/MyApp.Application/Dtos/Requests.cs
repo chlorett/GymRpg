@@ -55,3 +55,6 @@ public sealed record UpdateSessionStatusRequest(
 
 public sealed record RegisterGymRequest(
     int UserId, int RegionId, string Name);
+
+public sealed record PromoteDivisionRequest(
+    int UserId, int TargetDivisionId);

@@ -48,6 +48,9 @@ public partial class MainWindow : Window
     private void OnGymStandingsClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<GymStandingsWindow>().Show();
 
+    private void OnDivisionQualificationClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<DivisionQualificationWindow>().Show();
+
     private void OnMedalsClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<MedalsWindow>().Show();
 

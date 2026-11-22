@@ -1,0 +1,1572 @@
+diff --git a/MyApp.Tests/DivisionQualificationServiceTests.cs b/MyApp.Tests/DivisionQualificationServiceTests.cs
+new file mode 100644
+index 0000000..017a7fe
+--- /dev/null
++++ b/MyApp.Tests/DivisionQualificationServiceTests.cs
+@@ -0,0 +1,573 @@
++using Microsoft.Extensions.Logging;
++using Microsoft.Extensions.Logging.Testing;
++using Moq;
++using MyApp.Application.Dtos;
++using MyApp.Application.Interfaces;
++using MyApp.Application.Services;
++using MyApp.Domain.Entities;
++using Xunit;
++
++namespace MyApp.Tests;
++
++public sealed class DivisionQualificationServiceTests
++{
++    private const int AthleteId = 1;
++    private const int NoviceId = 1;
++    private const int AmateurId = 2;
++    private const int AdvancedId = 3;
++    private const int ProId = 4;
++    private const int EliteId = 5;
++
++    private readonly Mock<IUserRepository> _users = new();
++    private readonly Mock<IUserProgressRepository> _progress = new();
++    private readonly FakeLogger<DivisionQualificationService> _logger = new();
++    private readonly DivisionQualificationService _service;
++
++    public DivisionQualificationServiceTests()
++    {
++        _users
++            .Setup(u => u.GetDivisionsAsync(It.IsAny<CancellationToken>()))
++            .ReturnsAsync(CreateDivisions());
++        _users
++            .Setup(u => u.GetGymsAsync(It.IsAny<CancellationToken>()))
++            .ReturnsAsync(new List<Gym>
++            {
++                new() { Id = 10, RegionId = 1, Name = "Iron Temple" },
++                new() { Id = 11, RegionId = 1, Name = "Alpha Gym" },
++            });
++        _users
++            .Setup(u => u.UpdateAffiliationAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
++            .ReturnsAsync(true);
++        _progress
++            .Setup(p => p.GetLeaderboardUsersAsync(It.IsAny<CancellationToken>()))
++            .ReturnsAsync(new List<User>());
++
++        SetUser(divisionId: AmateurId);
++        SetProgress(AthleteId, 1500, 2);
++
++        _service = new DivisionQualificationService(_users.Object, _progress.Object, _logger);
++    }
++
++    [Fact]
++    public async Task GetOverview_ReturnsThresholdsAndLevelsForEveryDivision()
++    {
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        Assert.True(result.IsSuccess);
++        var rows = result.Value!.Divisions;
++        Assert.Equal(new long[] { 0, 1000, 3000, 6000, 10000 }, rows.Select(r => r.MinXp));
++        Assert.Equal(new[] { 1, 2, 4, 7, 11 }, rows.Select(r => r.MinLevel));
++        Assert.Equal(new[] { "Новачок", "Любитель", "Просунутий", "Професіонал", "Еліта" }, rows.Select(r => r.Name));
++    }
++
++    [Fact]
++    public async Task GetOverview_MarksCurrentDivisionAndReachedThresholds()
++    {
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        var rows = result.Value!.Divisions;
++        Assert.Equal(AmateurId, rows.Single(r => r.IsCurrent).DivisionId);
++        Assert.Equal(new[] { true, true, false, false, false }, rows.Select(r => r.IsReached));
++    }
++
++    [Fact]
++    public async Task GetOverview_CalculatesXpToNextDivisionWhenNotEnoughXp()
++    {
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        var overview = result.Value!;
++        Assert.Equal("Любитель", overview.CurrentDivisionName);
++        Assert.Equal(1500, overview.CurrentXp);
++        Assert.Equal(2, overview.CurrentLevel);
++        Assert.Equal(AdvancedId, overview.NextDivisionId);
++        Assert.Equal("Просунутий", overview.NextDivisionName);
++        Assert.Equal(1500, overview.XpToNextDivision);
++        Assert.False(overview.CanPromote);
++    }
++
++    [Theory]
++    [InlineData(2999, false, 1)]
++    [InlineData(3000, true, 0)]
++    [InlineData(4500, true, 0)]
++    public async Task GetOverview_CanPromoteOnlyWhenXpReachesNextThreshold(long xp, bool expected, long xpLeft)
++    {
++        SetProgress(AthleteId, xp, 3);
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        Assert.Equal(expected, result.Value!.CanPromote);
++        Assert.Equal(xpLeft, result.Value.XpToNextDivision);
++    }
++
++    [Fact]
++    public async Task GetOverview_WhenAthleteIsInTopDivision_HasNoNextDivision()
++    {
++        SetUser(divisionId: EliteId);
++        SetProgress(AthleteId, 25000, 26);
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        var overview = result.Value!;
++        Assert.Null(overview.NextDivisionId);
++        Assert.Null(overview.NextDivisionName);
++        Assert.Equal(0, overview.XpToNextDivision);
++        Assert.False(overview.CanPromote);
++    }
++
++    [Fact]
++    public async Task GetOverview_WhenUserHasNoDivision_OffersFirstDivisionAndShowsItAsSelected()
++    {
++        SetUser(divisionId: null);
++        SetProgress(AthleteId, 0, 1);
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        var overview = result.Value!;
++        Assert.Null(overview.CurrentDivisionId);
++        Assert.Equal("—", overview.CurrentDivisionName);
++        Assert.Equal(NoviceId, overview.NextDivisionId);
++        Assert.Equal(NoviceId, overview.SelectedDivisionId);
++        Assert.True(overview.CanPromote);
++    }
++
++    [Fact]
++    public async Task GetOverview_WhenProgressMissing_TreatsXpAsZeroAndLevelAsOne()
++    {
++        _progress
++            .Setup(p => p.GetByUserIdAsync(AthleteId, It.IsAny<CancellationToken>()))
++            .ReturnsAsync((UserProgress?)null);
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        Assert.Equal(0, result.Value!.CurrentXp);
++        Assert.Equal(1, result.Value.CurrentLevel);
++        Assert.Equal(3000, result.Value.XpToNextDivision);
++    }
++
++    [Fact]
++    public async Task GetOverview_WhenUserIsBlocked_CannotPromoteEvenWithEnoughXp()
++    {
++        SetUser(divisionId: AmateurId, isBlocked: true);
++        SetProgress(AthleteId, 5000, 6);
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        Assert.True(result.IsSuccess);
++        Assert.False(result.Value!.CanPromote);
++    }
++
++    [Fact]
++    public async Task GetOverview_WhenUserExcludedFromLeaderboard_CannotPromote()
++    {
++        SetUser(divisionId: AmateurId, isExcluded: true);
++        SetProgress(AthleteId, 5000, 6);
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        Assert.False(result.Value!.CanPromote);
++    }
++
++    [Fact]
++    public async Task GetOverview_DefaultsStandingsToCurrentDivision()
++    {
++        SetParticipants(
++            Participant(1, "hero", AmateurId, 1500, 10),
++            Participant(2, "rival", AmateurId, 2500, 11),
++            Participant(3, "newbie", NoviceId, 300, null));
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        var overview = result.Value!;
++        Assert.Equal(AmateurId, overview.SelectedDivisionId);
++        Assert.Equal(new[] { "rival", "hero" }, overview.Standings.Select(s => s.Username));
++        Assert.Equal(new[] { 1, 2 }, overview.Standings.Select(s => s.Rank));
++    }
++
++    [Fact]
++    public async Task GetOverview_WithDivisionFilter_ShowsOnlyThatDivision()
++    {
++        SetParticipants(
++            Participant(1, "hero", AmateurId, 1500, 10),
++            Participant(3, "newbie", NoviceId, 300, 11));
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId, NoviceId);
++
++        var overview = result.Value!;
++        Assert.Equal(NoviceId, overview.SelectedDivisionId);
++        Assert.Equal("Новачок", overview.SelectedDivisionName);
++        var only = Assert.Single(overview.Standings);
++        Assert.Equal("newbie", only.Username);
++        Assert.Equal("Alpha Gym", only.GymName);
++    }
++
++    [Fact]
++    public async Task GetOverview_StandingsSkipBlockedAndExcludedAthletes()
++    {
++        SetParticipants(
++            Participant(1, "hero", AmateurId, 1500, 10),
++            Participant(2, "cheater", AmateurId, 9000, 10, isBlocked: true),
++            Participant(3, "hidden", AmateurId, 8000, 10, isExcluded: true));
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        var only = Assert.Single(result.Value!.Standings);
++        Assert.Equal("hero", only.Username);
++    }
++
++    [Fact]
++    public async Task GetOverview_StandingsShowGymNameAndMarkCurrentUser()
++    {
++        SetParticipants(
++            Participant(1, "hero", AmateurId, 1500, 10),
++            Participant(2, "rival", AmateurId, 1200, null));
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        var standings = result.Value!.Standings;
++        Assert.Equal("Iron Temple", standings[0].GymName);
++        Assert.True(standings[0].IsCurrentUser);
++        Assert.Equal("—", standings[1].GymName);
++        Assert.False(standings[1].IsCurrentUser);
++    }
++
++    [Fact]
++    public async Task GetOverview_WhenXpEqual_OrdersByLevelThenUsername()
++    {
++        SetParticipants(
++            Participant(2, "zeta", AmateurId, 2000, 10),
++            Participant(3, "alpha", AmateurId, 2000, 10),
++            Participant(4, "leveled", AmateurId, 2000, 10, level: 9));
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        Assert.Equal(new[] { "leveled", "alpha", "zeta" }, result.Value!.Standings.Select(s => s.Username));
++    }
++
++    [Theory]
++    [InlineData(0)]
++    [InlineData(-3)]
++    public async Task GetOverview_WhenUserIdNotPositive_ReturnsValidationFailedAndLogsWarning(int userId)
++    {
++        var result = await _service.GetDivisionQualificationOverviewAsync(userId);
++
++        Assert.False(result.IsSuccess);
++        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
++        Assert.Null(result.Value);
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++        _users.Verify(u => u.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
++    }
++
++    [Theory]
++    [InlineData(0)]
++    [InlineData(-1)]
++    public async Task GetOverview_WhenDivisionFilterNotPositive_ReturnsValidationFailedAndLogsWarning(int filter)
++    {
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId, filter);
++
++        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
++        Assert.Equal("divisionIdFilter", result.Field);
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++        _users.Verify(u => u.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
++    }
++
++    [Fact]
++    public async Task GetOverview_WhenDivisionFilterDoesNotExist_ReturnsDivisionNotFound()
++    {
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId, 99);
++
++        Assert.Equal(ErrorCodes.DivisionNotFound, result.ErrorCode);
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++    }
++
++    [Fact]
++    public async Task GetOverview_WhenUserNotFound_ReturnsUserNotFound()
++    {
++        var result = await _service.GetDivisionQualificationOverviewAsync(77);
++
++        Assert.Equal(ErrorCodes.UserNotFound, result.ErrorCode);
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++    }
++
++    [Fact]
++    public async Task GetOverview_OnSuccess_LogsInformationAndNoWarning()
++    {
++        await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Information);
++        Assert.DoesNotContain(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++    }
++
++    [Fact]
++    public async Task GetOverview_WhenDivisionNameUnknown_UsesPositionalThreshold()
++    {
++        _users
++            .Setup(u => u.GetDivisionsAsync(It.IsAny<CancellationToken>()))
++            .ReturnsAsync(new List<Division>
++            {
++                new() { Id = 1, Name = "Alpha" },
++                new() { Id = 2, Name = "Beta" },
++            });
++        SetUser(divisionId: 1);
++
++        var result = await _service.GetDivisionQualificationOverviewAsync(AthleteId);
++
++        Assert.Equal(new long[] { 0, 1000 }, result.Value!.Divisions.Select(r => r.MinXp));
++    }
++
++    [Fact]
++    public async Task Promote_WhenXpEnough_UpdatesDivisionKeepingGymAndReturnsResult()
++    {
++        SetUser(divisionId: AmateurId, gymId: 10);
++        SetProgress(AthleteId, 3200, 4);
++
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(AthleteId, AdvancedId));
++
++        Assert.True(result.IsSuccess);
++        var value = result.Value!;
++        Assert.Equal(AmateurId, value.PreviousDivisionId);
++        Assert.Equal("Любитель", value.PreviousDivisionName);
++        Assert.Equal(AdvancedId, value.NewDivisionId);
++        Assert.Equal("Просунутий", value.NewDivisionName);
++        Assert.Equal(3200, value.CurrentXp);
++        Assert.Equal(4, value.CurrentLevel);
++        _users.Verify(
++            u => u.UpdateAffiliationAsync(AthleteId, "hero", 10, AdvancedId, It.IsAny<CancellationToken>()),
++            Times.Once);
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Information);
++        Assert.DoesNotContain(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++    }
++
++    [Fact]
++    public async Task Promote_WhenXpExactlyEqualsThreshold_Succeeds()
++    {
++        SetProgress(AthleteId, 3000, 4);
++
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(AthleteId, AdvancedId));
++
++        Assert.True(result.IsSuccess);
++    }
++
++    [Fact]
++    public async Task Promote_WhenUserHasNoDivision_AllowsFirstDivision()
++    {
++        SetUser(divisionId: null);
++        SetProgress(AthleteId, 0, 1);
++
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(AthleteId, NoviceId));
++
++        Assert.True(result.IsSuccess);
++        Assert.Null(result.Value!.PreviousDivisionId);
++        Assert.Equal("—", result.Value.PreviousDivisionName);
++    }
++
++    [Fact]
++    public async Task Promote_WhenAthleteSkipsDivisionsWithEnoughXp_Succeeds()
++    {
++        SetProgress(AthleteId, 6500, 7);
++
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(AthleteId, ProId));
++
++        Assert.True(result.IsSuccess);
++        Assert.Equal(ProId, result.Value!.NewDivisionId);
++    }
++
++    [Fact]
++    public async Task Promote_WhenNotEnoughXp_ReturnsValidationFailedWithMissingXp()
++    {
++        SetProgress(AthleteId, 2500, 3);
++
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(AthleteId, AdvancedId));
++
++        Assert.False(result.IsSuccess);
++        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
++        Assert.Equal(nameof(PromoteDivisionRequest.TargetDivisionId), result.Field);
++        Assert.Contains("500", result.Message!);
++        Assert.Contains("Просунутий", result.Message!);
++        Assert.Null(result.Value);
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++        VerifyNoUpdate();
++    }
++
++    [Fact]
++    public async Task Promote_WhenProgressMissing_TreatsXpAsZero()
++    {
++        _progress
++            .Setup(p => p.GetByUserIdAsync(AthleteId, It.IsAny<CancellationToken>()))
++            .ReturnsAsync((UserProgress?)null);
++
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(AthleteId, AdvancedId));
++
++        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
++        Assert.Contains("3000", result.Message!);
++        VerifyNoUpdate();
++    }
++
++    [Fact]
++    public async Task Promote_WhenUserBlocked_ReturnsModerationAccessDenied()
++    {
++        SetUser(divisionId: AmateurId, isBlocked: true);
++        SetProgress(AthleteId, 9000, 10);
++
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(AthleteId, AdvancedId));
++
++        Assert.False(result.IsSuccess);
++        Assert.Equal(ErrorCodes.ModerationAccessDenied, result.ErrorCode);
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++        VerifyNoUpdate();
++    }
++
++    [Fact]
++    public async Task Promote_WhenUserExcludedFromLeaderboard_ReturnsModerationAccessDenied()
++    {
++        SetUser(divisionId: AmateurId, isExcluded: true);
++        SetProgress(AthleteId, 9000, 10);
++
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(AthleteId, AdvancedId));
++
++        Assert.Equal(ErrorCodes.ModerationAccessDenied, result.ErrorCode);
++        VerifyNoUpdate();
++    }
++
++    [Theory]
++    [InlineData(AmateurId)]
++    [InlineData(NoviceId)]
++    public async Task Promote_WhenTargetIsNotHigherThanCurrent_ReturnsValidationFailed(int targetId)
++    {
++        SetProgress(AthleteId, 9000, 10);
++
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(AthleteId, targetId));
++
++        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
++        Assert.Equal(nameof(PromoteDivisionRequest.TargetDivisionId), result.Field);
++        VerifyNoUpdate();
++    }
++
++    [Fact]
++    public async Task Promote_WhenTargetDivisionDoesNotExist_ReturnsDivisionNotFound()
++    {
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(AthleteId, 99));
++
++        Assert.Equal(ErrorCodes.DivisionNotFound, result.ErrorCode);
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++        VerifyNoUpdate();
++    }
++
++    [Fact]
++    public async Task Promote_WhenUserNotFound_ReturnsUserNotFound()
++    {
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(77, AdvancedId));
++
++        Assert.Equal(ErrorCodes.UserNotFound, result.ErrorCode);
++        VerifyNoUpdate();
++    }
++
++    [Theory]
++    [InlineData(0, 3)]
++    [InlineData(-1, 3)]
++    [InlineData(1, 0)]
++    [InlineData(1, -2)]
++    public async Task Promote_WhenIdsNotPositive_ReturnsValidationFailed(int userId, int divisionId)
++    {
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(userId, divisionId));
++
++        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++        _users.Verify(u => u.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
++        VerifyNoUpdate();
++    }
++
++    [Fact]
++    public async Task Promote_WhenRequestIsNull_ReturnsValidationFailed()
++    {
++        var result = await _service.PromoteToDivisionAsync(null!);
++
++        Assert.Equal(ErrorCodes.ValidationFailed, result.ErrorCode);
++        Assert.Equal("request", result.Field);
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++    }
++
++    [Fact]
++    public async Task Promote_WhenRepositoryCannotSave_ReturnsFailure()
++    {
++        SetProgress(AthleteId, 3500, 4);
++        _users
++            .Setup(u => u.UpdateAffiliationAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
++            .ReturnsAsync(false);
++
++        var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(AthleteId, AdvancedId));
++
++        Assert.False(result.IsSuccess);
++        Assert.Single(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Warning);
++        Assert.DoesNotContain(_logger.Collector.GetSnapshot(), r => r.Level == LogLevel.Information);
++    }
++
++    private static List<Division> CreateDivisions()
++    {
++        return new List<Division>
++        {
++            new() { Id = EliteId, Name = "Еліта" },
++            new() { Id = NoviceId, Name = "Новачок" },
++            new() { Id = AmateurId, Name = "Любитель" },
++            new() { Id = ProId, Name = "Професіонал" },
++            new() { Id = AdvancedId, Name = "Просунутий" },
++        };
++    }
++
++    private static User Participant(
++        int id,
++        string name,
++        int divisionId,
++        long xp,
++        int? gymId,
++        bool isBlocked = false,
++        bool isExcluded = false,
++        int level = 1)
++    {
++        return new User
++        {
++            Id = id,
++            Username = name,
++            DivisionId = divisionId,
++            GymId = gymId,
++            IsBlocked = isBlocked,
++            IsExcludedFromLeaderboard = isExcluded,
++            UserProgress = new UserProgress { UserId = id, Xp = xp, Level = level },
++        };
++    }
++
++    private void SetUser(int? divisionId, int? gymId = null, bool isBlocked = false, bool isExcluded = false)
++    {
++        _users
++            .Setup(u => u.GetByIdAsync(AthleteId, It.IsAny<CancellationToken>()))
++            .ReturnsAsync(new User
++            {
++                Id = AthleteId,
++                Username = "hero",
++                DivisionId = divisionId,
++                GymId = gymId,
++                IsBlocked = isBlocked,
++                IsExcludedFromLeaderboard = isExcluded,
++            });
++    }
++
++    private void SetProgress(int userId, long xp, int level)
++    {
++        _progress
++            .Setup(p => p.GetByUserIdAsync(userId, It.IsAny<CancellationToken>()))
++            .ReturnsAsync(new UserProgress { UserId = userId, Xp = xp, Level = level });
++    }
++
++    private void SetParticipants(params User[] users)
++    {
++        _progress
++            .Setup(p => p.GetLeaderboardUsersAsync(It.IsAny<CancellationToken>()))
++            .ReturnsAsync(users.ToList());
++    }
++
++    private void VerifyNoUpdate()
++    {
++        _users.Verify(
++            u => u.UpdateAffiliationAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()),
++            Times.Never);
++    }
++}
+diff --git a/MyApp.Wpf/MainWindow.xaml b/MyApp.Wpf/MainWindow.xaml
+index 6b5d084..bf3e3fb 100644
+--- a/MyApp.Wpf/MainWindow.xaml
++++ b/MyApp.Wpf/MainWindow.xaml
+@@ -104,6 +104,8 @@
+                                     Click="OnLeaderboardClick" />
+                             <Button Content="Рейтинг спортзалів" Style="{StaticResource MenuItemButton}"
+                                     Click="OnGymStandingsClick" />
++                            <Button Content="Дивізіони та кваліфікація" Style="{StaticResource MenuItemButton}"
++                                    Click="OnDivisionQualificationClick" />
+                             <Button Content="Медалі та досягнення" Style="{StaticResource MenuItemButton}"
+                                     Click="OnMedalsClick" />
+                             <Button Content="Аналітика м'язів" Style="{StaticResource MenuItemButton}"
+diff --git a/MyApp.Wpf/MainWindow.xaml.cs b/MyApp.Wpf/MainWindow.xaml.cs
+index dbfa586..1cdb540 100644
+--- a/MyApp.Wpf/MainWindow.xaml.cs
++++ b/MyApp.Wpf/MainWindow.xaml.cs
+@@ -48,6 +48,9 @@ public partial class MainWindow : Window
+     private void OnGymStandingsClick(object sender, RoutedEventArgs e) =>
+         _services.GetRequiredService<GymStandingsWindow>().Show();
+ 
++    private void OnDivisionQualificationClick(object sender, RoutedEventArgs e) =>
++        _services.GetRequiredService<DivisionQualificationWindow>().Show();
++
+     private void OnMedalsClick(object sender, RoutedEventArgs e) =>
+         _services.GetRequiredService<MedalsWindow>().Show();
+ 
+diff --git a/MyApp.Wpf/ViewModels/DivisionQualificationViewModel.cs b/MyApp.Wpf/ViewModels/DivisionQualificationViewModel.cs
+new file mode 100644
+index 0000000..25b800a
+--- /dev/null
++++ b/MyApp.Wpf/ViewModels/DivisionQualificationViewModel.cs
+@@ -0,0 +1,270 @@
++using System.Collections.ObjectModel;
++using CommunityToolkit.Mvvm.ComponentModel;
++using CommunityToolkit.Mvvm.Input;
++using Microsoft.Extensions.Logging;
++using MyApp.Application.Dtos;
++using MyApp.Application.Interfaces;
++using MyApp.Wpf.Services;
++
++namespace MyApp.Wpf.ViewModels;
++
++public sealed class DivisionQualificationViewModel : ObservableObject
++{
++    private const double FullProgress = 100d;
++
++    private readonly IDivisionQualificationService _service;
++    private readonly CurrentUserSession _userSession;
++    private readonly ILogger<DivisionQualificationViewModel> _logger;
++
++    private DivisionRequirementDto? _selectedDivision;
++    private string _currentDivisionText = "—";
++    private string _xpText = string.Empty;
++    private string _progressText = string.Empty;
++    private string _standingsTitle = string.Empty;
++    private string? _statusMessage;
++    private string? _errorMessage;
++    private double _progressPercent;
++    private int? _nextDivisionId;
++    private bool _canPromote;
++    private bool _isBusy;
++    private bool _suppressFilter;
++
++    public DivisionQualificationViewModel(
++        IDivisionQualificationService service,
++        CurrentUserSession userSession,
++        ILogger<DivisionQualificationViewModel> logger)
++    {
++        _service = service ?? throw new ArgumentNullException(nameof(service));
++        _userSession = userSession ?? throw new ArgumentNullException(nameof(userSession));
++        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
++
++        RefreshCommand = new AsyncRelayCommand(() => LoadAsync(null), () => !IsBusy);
++        PromoteCommand = new AsyncRelayCommand(PromoteAsync, () => !IsBusy && CanPromote);
++    }
++
++    public ObservableCollection<DivisionRequirementDto> Requirements { get; } = new();
++
++    public ObservableCollection<DivisionStandingEntryDto> Standings { get; } = new();
++
++    public IAsyncRelayCommand RefreshCommand { get; }
++
++    public IAsyncRelayCommand PromoteCommand { get; }
++
++    public DivisionRequirementDto? SelectedDivision
++    {
++        get => _selectedDivision;
++        set
++        {
++            if (SetProperty(ref _selectedDivision, value) && value is not null && !_suppressFilter)
++            {
++                _ = LoadAsync(value.DivisionId);
++            }
++        }
++    }
++
++    public string CurrentDivisionText
++    {
++        get => _currentDivisionText;
++        private set => SetProperty(ref _currentDivisionText, value);
++    }
++
++    public string XpText
++    {
++        get => _xpText;
++        private set => SetProperty(ref _xpText, value);
++    }
++
++    public string ProgressText
++    {
++        get => _progressText;
++        private set => SetProperty(ref _progressText, value);
++    }
++
++    public string StandingsTitle
++    {
++        get => _standingsTitle;
++        private set => SetProperty(ref _standingsTitle, value);
++    }
++
++    public double ProgressPercent
++    {
++        get => _progressPercent;
++        private set => SetProperty(ref _progressPercent, value);
++    }
++
++    public string? StatusMessage
++    {
++        get => _statusMessage;
++        private set => SetProperty(ref _statusMessage, value);
++    }
++
++    public string? ErrorMessage
++    {
++        get => _errorMessage;
++        private set => SetProperty(ref _errorMessage, value);
++    }
++
++    public bool CanPromote
++    {
++        get => _canPromote;
++        private set
++        {
++            if (SetProperty(ref _canPromote, value))
++            {
++                PromoteCommand.NotifyCanExecuteChanged();
++            }
++        }
++    }
++
++    public bool IsBusy
++    {
++        get => _isBusy;
++        private set
++        {
++            if (SetProperty(ref _isBusy, value))
++            {
++                RefreshCommand.NotifyCanExecuteChanged();
++                PromoteCommand.NotifyCanExecuteChanged();
++            }
++        }
++    }
++
++    public async Task InitializeAsync()
++    {
++        await LoadAsync(null);
++    }
++
++    private static double CalculateProgress(DivisionQualificationOverviewDto overview)
++    {
++        if (overview.NextDivisionId is not { } nextId)
++        {
++            return FullProgress;
++        }
++
++        var currentMin = overview.Divisions.FirstOrDefault(d => d.IsCurrent)?.MinXp ?? 0;
++        var nextMin = overview.Divisions.FirstOrDefault(d => d.DivisionId == nextId)?.MinXp ?? currentMin;
++        var span = nextMin - currentMin;
++        if (span <= 0)
++        {
++            return FullProgress;
++        }
++
++        var done = (double)(overview.CurrentXp - currentMin) / span * FullProgress;
++        return Math.Clamp(done, 0d, FullProgress);
++    }
++
++    private async Task LoadAsync(int? divisionIdFilter)
++    {
++        ErrorMessage = null;
++        IsBusy = true;
++
++        try
++        {
++            var result = await _service.GetDivisionQualificationOverviewAsync(_userSession.UserId, divisionIdFilter);
++            if (!result.IsSuccess || result.Value is null)
++            {
++                _logger.LogWarning(
++                    "Не вдалося завантажити кваліфікацію дивізіонів: {ErrorCode}, поле {Field}",
++                    result.ErrorCode,
++                    result.Field);
++                ErrorMessage = result.Message ?? "Не вдалося завантажити дані дивізіонів.";
++                return;
++            }
++
++            Apply(result.Value);
++        }
++        catch (Exception ex)
++        {
++            _logger.LogError(ex, "Непередбачена помилка під час завантаження дивізіонів");
++            ErrorMessage = "Не вдалося завантажити дані. Спробуйте пізніше.";
++        }
++        finally
++        {
++            IsBusy = false;
++        }
++    }
++
++    private void Apply(DivisionQualificationOverviewDto overview)
++    {
++        _suppressFilter = true;
++        try
++        {
++            Requirements.Clear();
++            foreach (var requirement in overview.Divisions)
++            {
++                Requirements.Add(requirement);
++            }
++
++            SelectedDivision = Requirements.FirstOrDefault(r => r.DivisionId == overview.SelectedDivisionId);
++        }
++        finally
++        {
++            _suppressFilter = false;
++        }
++
++        Standings.Clear();
++        foreach (var entry in overview.Standings)
++        {
++            Standings.Add(entry);
++        }
++
++        CurrentDivisionText = overview.CurrentDivisionName;
++        XpText = $"XP: {overview.CurrentXp} · Рівень: {overview.CurrentLevel}";
++        StandingsTitle = $"Таблиця лідерів: {overview.SelectedDivisionName}";
++        ProgressPercent = CalculateProgress(overview);
++        _nextDivisionId = overview.NextDivisionId;
++        CanPromote = overview.CanPromote;
++
++        ProgressText = overview.NextDivisionName is null
++            ? "Ви в найвищому дивізіоні."
++            : overview.CanPromote
++                ? $"Норматив виконано: доступний перехід до «{overview.NextDivisionName}»."
++                : $"До «{overview.NextDivisionName}» залишилось {overview.XpToNextDivision} XP.";
++    }
++
++    private async Task PromoteAsync()
++    {
++        if (_nextDivisionId is not { } targetId)
++        {
++            return;
++        }
++
++        ErrorMessage = null;
++        StatusMessage = null;
++        IsBusy = true;
++
++        try
++        {
++            var result = await _service.PromoteToDivisionAsync(new PromoteDivisionRequest(_userSession.UserId, targetId));
++            if (!result.IsSuccess || result.Value is null)
++            {
++                _logger.LogWarning(
++                    "Підвищення дивізіону користувача {UserId} відхилено: {ErrorCode}, поле {Field}",
++                    _userSession.UserId,
++                    result.ErrorCode,
++                    result.Field);
++                ErrorMessage = result.Message ?? "Не вдалося виконати підвищення.";
++                return;
++            }
++
++            _logger.LogInformation(
++                "Користувач {UserId} перейшов у дивізіон {DivisionId} через вікно WPF",
++                _userSession.UserId,
++                result.Value.NewDivisionId);
++            _userSession.SetAffiliation(_userSession.UserName, _userSession.GymId, result.Value.NewDivisionId);
++            StatusMessage = $"Вітаємо! Ви перейшли до дивізіону «{result.Value.NewDivisionName}».";
++        }
++        catch (Exception ex)
++        {
++            _logger.LogError(ex, "Непередбачена помилка під час підвищення дивізіону");
++            ErrorMessage = "Не вдалося виконати підвищення. Спробуйте пізніше.";
++            return;
++        }
++        finally
++        {
++            IsBusy = false;
++        }
++
++        await LoadAsync(null);
++    }
++}
+diff --git a/MyApp.Wpf/Views/DivisionQualificationWindow.xaml b/MyApp.Wpf/Views/DivisionQualificationWindow.xaml
+new file mode 100644
+index 0000000..0d56626
+--- /dev/null
++++ b/MyApp.Wpf/Views/DivisionQualificationWindow.xaml
+@@ -0,0 +1,179 @@
++<Window x:Class="MyApp.Wpf.Views.DivisionQualificationWindow"
++        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
++        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
++        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
++        xmlns:viewModels="clr-namespace:MyApp.Wpf.ViewModels"
++        mc:Ignorable="d"
++        d:DataContext="{d:DesignInstance Type=viewModels:DivisionQualificationViewModel}"
++        Style="{StaticResource AppWindow}"
++        Title="Дивізіони та кваліфікація — PulseForge"
++        Height="760" Width="1040"
++        MinHeight="640" MinWidth="900"
++        WindowStartupLocation="CenterScreen">
++    <Window.Resources>
++        <Style x:Key="CollapsedWhenEmpty" TargetType="TextBlock" BasedOn="{StaticResource FieldError}">
++            <Style.Triggers>
++                <Trigger Property="Text" Value="">
++                    <Setter Property="Visibility" Value="Collapsed" />
++                </Trigger>
++                <Trigger Property="Text" Value="{x:Null}">
++                    <Setter Property="Visibility" Value="Collapsed" />
++                </Trigger>
++            </Style.Triggers>
++        </Style>
++        <Style x:Key="SuccessText" TargetType="TextBlock" BasedOn="{StaticResource CollapsedWhenEmpty}">
++            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
++        </Style>
++    </Window.Resources>
++    <Grid Margin="24">
++        <Grid.RowDefinitions>
++            <RowDefinition Height="Auto" />
++            <RowDefinition Height="Auto" />
++            <RowDefinition Height="*" />
++            <RowDefinition Height="Auto" />
++        </Grid.RowDefinitions>
++
++        <!-- Заголовок -->
++        <TextBlock Grid.Row="0"
++                   Text="Дивізіони та кваліфікація"
++                   Style="{StaticResource FormTitle}"
++                   Margin="0,0,0,12" />
++
++        <!-- Поточний статус і перехід у вищу лігу -->
++        <Border Grid.Row="1"
++                Style="{StaticResource CardBorder}"
++                Margin="0,0,0,12">
++            <Grid>
++                <Grid.ColumnDefinitions>
++                    <ColumnDefinition Width="*" />
++                    <ColumnDefinition Width="Auto" />
++                </Grid.ColumnDefinitions>
++
++                <StackPanel Grid.Column="0" Margin="0,0,16,0">
++                    <TextBlock Text="Мій дивізіон" Style="{StaticResource FieldLabel}" />
++                    <TextBlock Text="{Binding CurrentDivisionText}"
++                               FontSize="22"
++                               FontWeight="Bold"
++                               Foreground="{StaticResource AccentBrush}" />
++                    <TextBlock Text="{Binding XpText}"
++                               Foreground="{StaticResource TextSecondaryBrush}"
++                               Margin="0,2,0,8" />
++                    <ProgressBar Minimum="0"
++                                 Maximum="100"
++                                 Height="16"
++                                 Value="{Binding ProgressPercent, Mode=OneWay}"
++                                 Foreground="{StaticResource AccentBrush}" />
++                    <TextBlock Text="{Binding ProgressText}"
++                               Foreground="{StaticResource TextPrimaryBrush}"
++                               Margin="0,6,0,0" />
++                </StackPanel>
++
++                <Button Grid.Column="1"
++                        Content="Підвищити дивізіон"
++                        Command="{Binding PromoteCommand}"
++                        VerticalAlignment="Center"
++                        Padding="20,10"
++                        Style="{StaticResource PrimaryButton}" />
++            </Grid>
++        </Border>
++
++        <!-- Вимоги дивізіонів і таблиця лідерів -->
++        <Grid Grid.Row="2">
++            <Grid.ColumnDefinitions>
++                <ColumnDefinition Width="*" />
++                <ColumnDefinition Width="16" />
++                <ColumnDefinition Width="1.4*" />
++            </Grid.ColumnDefinitions>
++
++            <GroupBox Grid.Column="0"
++                      Header="Кваліфікаційні вимоги"
++                      Padding="8">
++                <DataGrid ItemsSource="{Binding Requirements}"
++                          Style="{StaticResource AppDataGrid}"
++                          AutoGenerateColumns="False"
++                          IsReadOnly="True"
++                          CanUserAddRows="False"
++                          CanUserDeleteRows="False"
++                          FontSize="13">
++                    <DataGrid.Columns>
++                        <DataGridTextColumn Header="Дивізіон" Binding="{Binding Name}" Width="*" />
++                        <DataGridTextColumn Header="Мін. XP" Binding="{Binding MinXp}" Width="80" />
++                        <DataGridTextColumn Header="Мін. рівень" Binding="{Binding MinLevel}" Width="90" />
++                        <DataGridCheckBoxColumn Header="Мій" Binding="{Binding IsCurrent, Mode=OneWay}" Width="50" />
++                        <DataGridCheckBoxColumn Header="Досягнуто" Binding="{Binding IsReached, Mode=OneWay}" Width="90" />
++                    </DataGrid.Columns>
++                </DataGrid>
++            </GroupBox>
++
++            <GroupBox Grid.Column="2"
++                      Padding="8">
++                <GroupBox.Header>
++                    <TextBlock Text="{Binding StandingsTitle}" />
++                </GroupBox.Header>
++                <Grid>
++                    <Grid.RowDefinitions>
++                        <RowDefinition Height="Auto" />
++                        <RowDefinition Height="*" />
++                    </Grid.RowDefinitions>
++
++                    <StackPanel Grid.Row="0" Margin="0,0,0,8">
++                        <TextBlock Text="Показати дивізіон" Style="{StaticResource FieldLabel}" />
++                        <ComboBox ItemsSource="{Binding Requirements}"
++                                  SelectedItem="{Binding SelectedDivision}"
++                                  DisplayMemberPath="Name"
++                                  Style="{StaticResource FieldComboBox}" />
++                    </StackPanel>
++
++                    <DataGrid Grid.Row="1"
++                              ItemsSource="{Binding Standings}"
++                              Style="{StaticResource AppDataGrid}"
++                              AutoGenerateColumns="False"
++                              IsReadOnly="True"
++                              CanUserAddRows="False"
++                              CanUserDeleteRows="False"
++                              FontSize="13">
++                        <DataGrid.Columns>
++                            <DataGridTextColumn Header="Місце" Binding="{Binding Rank, StringFormat=#{0}}" Width="70" />
++                            <DataGridTextColumn Header="Атлет" Binding="{Binding Username}" Width="1.2*" />
++                            <DataGridTextColumn Header="Спортзал" Binding="{Binding GymName}" Width="1.4*" />
++                            <DataGridTextColumn Header="XP" Binding="{Binding TotalXp}" Width="80" />
++                            <DataGridTextColumn Header="Рівень" Binding="{Binding Level}" Width="70" />
++                        </DataGrid.Columns>
++                    </DataGrid>
++                </Grid>
++            </GroupBox>
++        </Grid>
++
++        <!-- Повідомлення та кнопки -->
++        <Grid Grid.Row="3" Margin="0,12,0,0">
++            <Grid.ColumnDefinitions>
++                <ColumnDefinition Width="*" />
++                <ColumnDefinition Width="Auto" />
++            </Grid.ColumnDefinitions>
++
++            <StackPanel Grid.Column="0" VerticalAlignment="Center">
++                <TextBlock Text="{Binding ErrorMessage}"
++                           FontWeight="SemiBold"
++                           TextWrapping="Wrap"
++                           Style="{StaticResource CollapsedWhenEmpty}" />
++                <TextBlock Text="{Binding StatusMessage}"
++                           FontWeight="SemiBold"
++                           TextWrapping="Wrap"
++                           Style="{StaticResource SuccessText}" />
++            </StackPanel>
++
++            <StackPanel Grid.Column="1" Orientation="Horizontal">
++                <Button Content="Оновити"
++                        Command="{Binding RefreshCommand}"
++                        Style="{StaticResource SecondaryButton}"
++                        Padding="16,8"
++                        Margin="0,0,10,0" />
++                <Button Content="Закрити"
++                        Click="OnCloseClick"
++                        Style="{StaticResource PrimaryButton}"
++                        Padding="20,8" />
++            </StackPanel>
++        </Grid>
++    </Grid>
++</Window>
+diff --git a/MyApp.Wpf/Views/DivisionQualificationWindow.xaml.cs b/MyApp.Wpf/Views/DivisionQualificationWindow.xaml.cs
+new file mode 100644
+index 0000000..d14e7e5
+--- /dev/null
++++ b/MyApp.Wpf/Views/DivisionQualificationWindow.xaml.cs
+@@ -0,0 +1,17 @@
++using System.Windows;
++using MyApp.Wpf.ViewModels;
++
++namespace MyApp.Wpf.Views;
++
++public partial class DivisionQualificationWindow : Window
++{
++    public DivisionQualificationWindow(DivisionQualificationViewModel viewModel)
++    {
++        InitializeComponent();
++        DataContext = viewModel;
++
++        Loaded += async (_, _) => await viewModel.InitializeAsync();
++    }
++
++    private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
++}
+diff --git a/src/MyApp.Application/Dtos/DivisionPromotionResultDto.cs b/src/MyApp.Application/Dtos/DivisionPromotionResultDto.cs
+new file mode 100644
+index 0000000..1cdda2e
+--- /dev/null
++++ b/src/MyApp.Application/Dtos/DivisionPromotionResultDto.cs
+@@ -0,0 +1,9 @@
++namespace MyApp.Application.Dtos;
++
++public sealed record DivisionPromotionResultDto(
++    int? PreviousDivisionId,
++    string PreviousDivisionName,
++    int NewDivisionId,
++    string NewDivisionName,
++    long CurrentXp,
++    int CurrentLevel);
+diff --git a/src/MyApp.Application/Dtos/DivisionQualificationOverviewDto.cs b/src/MyApp.Application/Dtos/DivisionQualificationOverviewDto.cs
+new file mode 100644
+index 0000000..528bae6
+--- /dev/null
++++ b/src/MyApp.Application/Dtos/DivisionQualificationOverviewDto.cs
+@@ -0,0 +1,15 @@
++namespace MyApp.Application.Dtos;
++
++public sealed record DivisionQualificationOverviewDto(
++    int? CurrentDivisionId,
++    string CurrentDivisionName,
++    long CurrentXp,
++    int CurrentLevel,
++    int? NextDivisionId,
++    string? NextDivisionName,
++    long XpToNextDivision,
++    bool CanPromote,
++    int SelectedDivisionId,
++    string SelectedDivisionName,
++    IReadOnlyList<DivisionRequirementDto> Divisions,
++    IReadOnlyList<DivisionStandingEntryDto> Standings);
+diff --git a/src/MyApp.Application/Dtos/DivisionRequirementDto.cs b/src/MyApp.Application/Dtos/DivisionRequirementDto.cs
+new file mode 100644
+index 0000000..a3f0d44
+--- /dev/null
++++ b/src/MyApp.Application/Dtos/DivisionRequirementDto.cs
+@@ -0,0 +1,9 @@
++namespace MyApp.Application.Dtos;
++
++public sealed record DivisionRequirementDto(
++    int DivisionId,
++    string Name,
++    long MinXp,
++    int MinLevel,
++    bool IsCurrent,
++    bool IsReached);
+diff --git a/src/MyApp.Application/Dtos/DivisionStandingEntryDto.cs b/src/MyApp.Application/Dtos/DivisionStandingEntryDto.cs
+new file mode 100644
+index 0000000..d9acbd7
+--- /dev/null
++++ b/src/MyApp.Application/Dtos/DivisionStandingEntryDto.cs
+@@ -0,0 +1,10 @@
++namespace MyApp.Application.Dtos;
++
++public sealed record DivisionStandingEntryDto(
++    int Rank,
++    int UserId,
++    string Username,
++    string GymName,
++    long TotalXp,
++    int Level,
++    bool IsCurrentUser);
+diff --git a/src/MyApp.Application/Dtos/Requests.cs b/src/MyApp.Application/Dtos/Requests.cs
+index 79d1c1b..84f225c 100644
+--- a/src/MyApp.Application/Dtos/Requests.cs
++++ b/src/MyApp.Application/Dtos/Requests.cs
+@@ -55,3 +55,6 @@ public sealed record UpdateSessionStatusRequest(
+ 
+ public sealed record RegisterGymRequest(
+     int UserId, int RegionId, string Name);
++
++public sealed record PromoteDivisionRequest(
++    int UserId, int TargetDivisionId);
+diff --git a/src/MyApp.Application/Interfaces/IDivisionQualificationService.cs b/src/MyApp.Application/Interfaces/IDivisionQualificationService.cs
+new file mode 100644
+index 0000000..5fcfe25
+--- /dev/null
++++ b/src/MyApp.Application/Interfaces/IDivisionQualificationService.cs
+@@ -0,0 +1,15 @@
++using MyApp.Application.Dtos;
++
++namespace MyApp.Application.Interfaces;
++
++public interface IDivisionQualificationService
++{
++    Task<OperationResult<DivisionQualificationOverviewDto>> GetDivisionQualificationOverviewAsync(
++        int userId,
++        int? divisionIdFilter = null,
++        CancellationToken ct = default);
++
++    Task<OperationResult<DivisionPromotionResultDto>> PromoteToDivisionAsync(
++        PromoteDivisionRequest request,
++        CancellationToken ct = default);
++}
+diff --git a/src/MyApp.Application/Services/DivisionQualificationService.cs b/src/MyApp.Application/Services/DivisionQualificationService.cs
+new file mode 100644
+index 0000000..7301859
+--- /dev/null
++++ b/src/MyApp.Application/Services/DivisionQualificationService.cs
+@@ -0,0 +1,377 @@
++using Microsoft.Extensions.Logging;
++using MyApp.Application.Dtos;
++using MyApp.Application.Interfaces;
++using MyApp.Domain.Entities;
++
++namespace MyApp.Application.Services;
++
++public sealed class DivisionQualificationService : IDivisionQualificationService
++{
++    private const string NoValue = "—";
++
++    // Кваліфікаційні пороги XP за назвами дивізіонів (довідник у БД зберігає лише назву).
++    private static readonly Dictionary<string, long> ThresholdsByName = new(StringComparer.OrdinalIgnoreCase)
++    {
++        ["Новачок"] = 0,
++        ["Любитель"] = 1000,
++        ["Просунутий"] = 3000,
++        ["Професіонал"] = 6000,
++        ["Еліта"] = 10000,
++    };
++
++    // Запасні пороги за порядком, якщо в довіднику з'явився дивізіон з іншою назвою.
++    private static readonly long[] ThresholdsByPosition = { 0, 1000, 3000, 6000, 10000 };
++
++    private readonly IUserRepository _users;
++    private readonly IUserProgressRepository _progress;
++    private readonly ILogger<DivisionQualificationService> _logger;
++
++    public DivisionQualificationService(
++        IUserRepository users,
++        IUserProgressRepository progress,
++        ILogger<DivisionQualificationService> logger)
++    {
++        _users = users ?? throw new ArgumentNullException(nameof(users));
++        _progress = progress ?? throw new ArgumentNullException(nameof(progress));
++        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
++    }
++
++    public async Task<OperationResult<DivisionQualificationOverviewDto>> GetDivisionQualificationOverviewAsync(
++        int userId,
++        int? divisionIdFilter = null,
++        CancellationToken ct = default)
++    {
++        if (userId <= 0)
++        {
++            return RejectOverview(
++                userId,
++                OperationResult.Fail<DivisionQualificationOverviewDto>(
++                    ErrorCodes.ValidationFailed,
++                    nameof(userId),
++                    "Некоректний ідентифікатор користувача."));
++        }
++
++        if (divisionIdFilter is <= 0)
++        {
++            return RejectOverview(
++                userId,
++                OperationResult.Fail<DivisionQualificationOverviewDto>(
++                    ErrorCodes.ValidationFailed,
++                    nameof(divisionIdFilter),
++                    "Некоректний ідентифікатор дивізіону."));
++        }
++
++        var user = await _users.GetByIdAsync(userId, ct);
++        if (user is null)
++        {
++            return RejectOverview(
++                userId,
++                OperationResult.Fail<DivisionQualificationOverviewDto>(
++                    ErrorCodes.UserNotFound,
++                    nameof(userId),
++                    "Користувача не знайдено."));
++        }
++
++        var divisions = BuildLadder(await _users.GetDivisionsAsync(ct));
++        if (divisions.Count == 0)
++        {
++            return RejectOverview(
++                userId,
++                OperationResult.Fail<DivisionQualificationOverviewDto>(
++                    ErrorCodes.DivisionNotFound,
++                    null,
++                    "Довідник дивізіонів порожній."));
++        }
++
++        var progress = await _progress.GetByUserIdAsync(userId, ct);
++        var (xp, level) = ReadProgress(progress);
++
++        var current = divisions.Find(d => d.Division.Id == user.DivisionId);
++        var next = FindNext(divisions, current);
++        var selected = divisionIdFilter is { } filterId
++            ? divisions.Find(d => d.Division.Id == filterId)
++            : current ?? divisions[0];
++
++        if (selected is null)
++        {
++            return RejectOverview(
++                userId,
++                OperationResult.Fail<DivisionQualificationOverviewDto>(
++                    ErrorCodes.DivisionNotFound,
++                    nameof(divisionIdFilter),
++                    "Обраного дивізіону не існує."));
++        }
++
++        var isFair = IsFair(user);
++        var requirements = divisions
++            .Select(d => new DivisionRequirementDto(
++                d.Division.Id,
++                d.Division.Name,
++                d.MinXp,
++                XpCalculator.CalculateLevel(ToInt(d.MinXp)),
++                current is not null && d.Division.Id == current.Division.Id,
++                xp >= d.MinXp))
++            .ToList();
++
++        var participants = await _progress.GetLeaderboardUsersAsync(ct);
++        var gymNames = (await _users.GetGymsAsync(ct)).ToDictionary(g => g.Id, g => g.Name);
++        var standings = BuildStandings(participants, selected.Division.Id, userId, gymNames);
++
++        var xpToNext = next is null ? 0 : Math.Max(0, next.MinXp - xp);
++        var canPromote = next is not null && isFair && xp >= next.MinXp;
++
++        _logger.LogInformation(
++            "Division overview loaded for {UserId}: current {CurrentDivisionId}, selected {SelectedDivisionId}, {Count} athletes, can promote {CanPromote}",
++            userId,
++            current?.Division.Id,
++            selected.Division.Id,
++            standings.Count,
++            canPromote);
++
++        return OperationResult.Success(new DivisionQualificationOverviewDto(
++            current?.Division.Id,
++            current?.Division.Name ?? NoValue,
++            xp,
++            level,
++            next?.Division.Id,
++            next?.Division.Name,
++            xpToNext,
++            canPromote,
++            selected.Division.Id,
++            selected.Division.Name,
++            requirements,
++            standings));
++    }
++
++    public async Task<OperationResult<DivisionPromotionResultDto>> PromoteToDivisionAsync(
++        PromoteDivisionRequest request,
++        CancellationToken ct = default)
++    {
++        if (request is null)
++        {
++            return RejectPromotion(
++                0,
++                OperationResult.Fail<DivisionPromotionResultDto>(
++                    ErrorCodes.ValidationFailed,
++                    nameof(request),
++                    "Запит не може бути порожнім."));
++        }
++
++        if (request.UserId <= 0)
++        {
++            return RejectPromotion(
++                request.UserId,
++                OperationResult.Fail<DivisionPromotionResultDto>(
++                    ErrorCodes.ValidationFailed,
++                    nameof(PromoteDivisionRequest.UserId),
++                    "Некоректний ідентифікатор користувача."));
++        }
++
++        if (request.TargetDivisionId <= 0)
++        {
++            return RejectPromotion(
++                request.UserId,
++                OperationResult.Fail<DivisionPromotionResultDto>(
++                    ErrorCodes.ValidationFailed,
++                    nameof(PromoteDivisionRequest.TargetDivisionId),
++                    "Оберіть дивізіон для переходу."));
++        }
++
++        var user = await _users.GetByIdAsync(request.UserId, ct);
++        if (user is null)
++        {
++            return RejectPromotion(
++                request.UserId,
++                OperationResult.Fail<DivisionPromotionResultDto>(
++                    ErrorCodes.UserNotFound,
++                    nameof(PromoteDivisionRequest.UserId),
++                    "Користувача не знайдено."));
++        }
++
++        if (!IsFair(user))
++        {
++            return RejectPromotion(
++                request.UserId,
++                OperationResult.Fail<DivisionPromotionResultDto>(
++                    ErrorCodes.ModerationAccessDenied,
++                    nameof(PromoteDivisionRequest.UserId),
++                    "Підвищення в дивізіоні недоступне: акаунт заблоковано або виключено з рейтингу за порушення Fair Play."));
++        }
++
++        var divisions = BuildLadder(await _users.GetDivisionsAsync(ct));
++        var target = divisions.Find(d => d.Division.Id == request.TargetDivisionId);
++        if (target is null)
++        {
++            return RejectPromotion(
++                request.UserId,
++                OperationResult.Fail<DivisionPromotionResultDto>(
++                    ErrorCodes.DivisionNotFound,
++                    nameof(PromoteDivisionRequest.TargetDivisionId),
++                    "Обраного дивізіону не існує."));
++        }
++
++        var current = divisions.Find(d => d.Division.Id == user.DivisionId);
++        if (current is not null && target.MinXp <= current.MinXp)
++        {
++            return RejectPromotion(
++                request.UserId,
++                OperationResult.Fail<DivisionPromotionResultDto>(
++                    ErrorCodes.ValidationFailed,
++                    nameof(PromoteDivisionRequest.TargetDivisionId),
++                    "Перейти можна лише у вищий дивізіон."));
++        }
++
++        var progress = await _progress.GetByUserIdAsync(request.UserId, ct);
++        var (xp, level) = ReadProgress(progress);
++
++        if (xp < target.MinXp)
++        {
++            return RejectPromotion(
++                request.UserId,
++                OperationResult.Fail<DivisionPromotionResultDto>(
++                    ErrorCodes.ValidationFailed,
++                    nameof(PromoteDivisionRequest.TargetDivisionId),
++                    $"Недостатньо XP для дивізіону «{target.Division.Name}»: потрібно ще {target.MinXp - xp} XP."));
++        }
++
++        var saved = await _users.UpdateAffiliationAsync(
++            request.UserId,
++            user.Username,
++            user.GymId,
++            target.Division.Id,
++            ct);
++        if (!saved)
++        {
++            return RejectPromotion(
++                request.UserId,
++                OperationResult.Fail<DivisionPromotionResultDto>(
++                    ErrorCodes.UserNotFound,
++                    nameof(PromoteDivisionRequest.UserId),
++                    "Не вдалося зберегти зміну дивізіону."));
++        }
++
++        _logger.LogInformation(
++            "User {UserId} promoted from division {PreviousDivisionId} to {NewDivisionId} with {Xp} XP",
++            request.UserId,
++            current?.Division.Id,
++            target.Division.Id,
++            xp);
++
++        return OperationResult.Success(new DivisionPromotionResultDto(
++            current?.Division.Id,
++            current?.Division.Name ?? NoValue,
++            target.Division.Id,
++            target.Division.Name,
++            xp,
++            level));
++    }
++
++    private static bool IsFair(User user) => !user.IsBlocked && !user.IsExcludedFromLeaderboard;
++
++    private static int ToInt(long value) => (int)Math.Min(value, int.MaxValue);
++
++    private static (long Xp, int Level) ReadProgress(UserProgress? progress)
++    {
++        long xp = Math.Max(0, progress?.Xp ?? 0);
++        int level = progress is not null && progress.Level > 0
++            ? progress.Level
++            : XpCalculator.CalculateLevel(ToInt(xp));
++
++        return (xp, level);
++    }
++
++    private static List<LadderStep> BuildLadder(IReadOnlyList<Division> divisions)
++    {
++        return divisions
++            .OrderBy(d => d.Id)
++            .Select((d, index) => new LadderStep(d, ResolveThreshold(d.Name, index)))
++            .OrderBy(step => step.MinXp)
++            .ThenBy(step => step.Division.Id)
++            .ToList();
++    }
++
++    private static long ResolveThreshold(string name, int position)
++    {
++        if (ThresholdsByName.TryGetValue(name.Trim(), out var byName))
++        {
++            return byName;
++        }
++
++        return ThresholdsByPosition[Math.Min(position, ThresholdsByPosition.Length - 1)];
++    }
++
++    private static LadderStep? FindNext(List<LadderStep> ladder, LadderStep? current)
++    {
++        return current is null
++            ? ladder[0]
++            : ladder.Find(step => step.MinXp > current.MinXp);
++    }
++
++    private static List<DivisionStandingEntryDto> BuildStandings(
++        IReadOnlyList<User> users,
++        int divisionId,
++        int currentUserId,
++        IReadOnlyDictionary<int, string> gymNames)
++    {
++        var ranked = users
++            .Where(u => u.DivisionId == divisionId && IsFair(u))
++            .Select(u =>
++            {
++                var (xp, level) = ReadProgress(u.UserProgress);
++                return (User: u, Xp: xp, Level: level);
++            })
++            .OrderByDescending(x => x.Xp)
++            .ThenByDescending(x => x.Level)
++            .ThenBy(x => x.User.Username, StringComparer.OrdinalIgnoreCase)
++            .ToList();
++
++        var result = new List<DivisionStandingEntryDto>(ranked.Count);
++        for (int i = 0; i < ranked.Count; i++)
++        {
++            var item = ranked[i];
++            int id = (int)item.User.Id;
++            var gymName = item.User.GymId is { } gymId && gymNames.TryGetValue(gymId, out var name)
++                ? name
++                : NoValue;
++
++            result.Add(new DivisionStandingEntryDto(
++                i + 1,
++                id,
++                item.User.Username,
++                gymName,
++                item.Xp,
++                item.Level,
++                id == currentUserId));
++        }
++
++        return result;
++    }
++
++    private OperationResult<DivisionQualificationOverviewDto> RejectOverview(
++        int userId,
++        OperationResult<DivisionQualificationOverviewDto> result)
++    {
++        _logger.LogWarning(
++            "Division overview rejected for {UserId}: error {ErrorCode}, field {Field}",
++            userId,
++            result.ErrorCode,
++            result.Field);
++
++        return result;
++    }
++
++    private OperationResult<DivisionPromotionResultDto> RejectPromotion(
++        int userId,
++        OperationResult<DivisionPromotionResultDto> result)
++    {
++        _logger.LogWarning(
++            "Division promotion rejected for {UserId}: error {ErrorCode}, field {Field}",
++            userId,
++            result.ErrorCode,
++            result.Field);
++
++        return result;
++    }
++
++    private sealed record LadderStep(Division Division, long MinXp);
++}
