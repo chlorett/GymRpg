@@ -102,6 +102,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<ExerciseCatalogWindow>();
         services.AddTransient<WorkoutSessionsViewModel>();
         services.AddTransient<WorkoutSessionsWindow>();
+        services.AddTransient<SessionExecutionViewModel>();
     }
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
