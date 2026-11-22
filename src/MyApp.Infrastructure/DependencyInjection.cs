@@ -40,7 +40,8 @@ public static class DependencyInjection
         // --- Софія: репозиторій шаблонів ---
         services.AddTransient<IWorkoutTemplateRepository, WorkoutTemplateRepository>();
         services.AddScoped<IExerciseCatalogService, ExerciseCatalogService>();
-        services.AddScoped<IWorkoutSessionRepository, WorkoutSessionRepository>();
+        services.AddScoped<IWorkoutSessionService, WorkoutSessionService>();
+        services.AddTransient<IWorkoutSessionRepository, WorkoutSessionRepository>();
 
         // --- Назар: репозиторії тренувань, прогресу, медалей, м'язового навантаження та рекордів ---
         services.AddTransient<IWorkoutRecordRepository, WorkoutRecordRepository>();

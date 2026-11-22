@@ -6,7 +6,7 @@ using MyApp.Domain.Enums;
 
 namespace MyApp.Application.Services;
 
-public sealed class WorkoutSessionService : IWorkoutSessionService
+public sealed partial class WorkoutSessionService : IWorkoutSessionService
 {
     private const int MaxPastDays = 30;
     private const int MaxNameLength = 100;

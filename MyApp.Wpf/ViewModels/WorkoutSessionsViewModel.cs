@@ -54,7 +54,10 @@ public sealed class WorkoutSessionsViewModel : ObservableObject
             () => ChangeStatusAsync(SessionStatus.Skipped), CanChangeStatus);
         CancelCommand = new AsyncRelayCommand(
             () => ChangeStatusAsync(SessionStatus.Canceled), CanChangeStatus);
+        ExecuteSessionCommand = new RelayCommand(RaiseExecuteSessionRequested, CanExecuteSession);
     }
+
+    public event Action<int>? ExecuteSessionRequested;
 
     public ObservableCollection<WorkoutTemplateSummaryDto> Templates { get; } = new();
 
@@ -146,6 +149,8 @@ public sealed class WorkoutSessionsViewModel : ObservableObject
 
     public IAsyncRelayCommand CancelCommand { get; }
 
+    public IRelayCommand ExecuteSessionCommand { get; }
+
     public async Task LoadAsync()
     {
         ErrorMessage = null;
@@ -176,13 +181,28 @@ public sealed class WorkoutSessionsViewModel : ObservableObject
         }
     }
 
+    public Task RefreshSessionsAsync() => LoadSessionsAsync();
+
     private bool CanChangeStatus() => !IsBusy && SelectedSession is not null;
+
+    private bool CanExecuteSession() => !IsBusy && SelectedSession?.Status == SessionStatus.Planned;
+
+    private void RaiseExecuteSessionRequested()
+    {
+        if (SelectedSession is null)
+        {
+            return;
+        }
+
+        ExecuteSessionRequested?.Invoke(SelectedSession.SessionId);
+    }
 
     private void NotifyStatusCommands()
     {
         MarkCompletedCommand.NotifyCanExecuteChanged();
         SkipCommand.NotifyCanExecuteChanged();
         CancelCommand.NotifyCanExecuteChanged();
+        ExecuteSessionCommand.NotifyCanExecuteChanged();
     }
 
     private async Task LoadSessionsAsync()
@@ -209,7 +229,7 @@ public sealed class WorkoutSessionsViewModel : ObservableObject
         int previousId = SelectedSession?.SessionId ?? 0;
 
         var items = await _sessionService.GetUserSessionsAsync(
-            _userSession.TrainerId,
+            _userSession.UserId,
             SelectedFilter.Value);
 
         Sessions.Clear();
@@ -230,7 +250,7 @@ public sealed class WorkoutSessionsViewModel : ObservableObject
         try
         {
             var request = new ScheduleWorkoutSessionRequest(
-                _userSession.TrainerId,
+                _userSession.UserId,
                 SelectedTemplate?.TemplateId ?? 0,
                 WorkoutName,
                 ScheduledDate ?? default);
@@ -271,7 +291,7 @@ public sealed class WorkoutSessionsViewModel : ObservableObject
         try
         {
             var request = new UpdateSessionStatusRequest(
-                _userSession.TrainerId,
+                _userSession.UserId,
                 SelectedSession.SessionId,
                 newStatus);
 

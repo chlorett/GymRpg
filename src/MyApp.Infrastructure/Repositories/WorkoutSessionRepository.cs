@@ -7,7 +7,7 @@ using MyApp.Infrastructure.Data;
 
 namespace MyApp.Infrastructure.Repositories;
 
-public sealed class WorkoutSessionRepository : IWorkoutSessionRepository
+public sealed partial class WorkoutSessionRepository
 {
     private const long FirstInMemId = 100_000;
 

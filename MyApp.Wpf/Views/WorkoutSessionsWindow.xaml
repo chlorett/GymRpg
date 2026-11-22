@@ -183,7 +183,7 @@
             <StackPanel Grid.Column="0"
                         Orientation="Horizontal">
                 <Button Content="Позначити виконаним"
-                        Command="{Binding MarkCompletedCommand}"
+                        Command="{Binding ExecuteSessionCommand}"
                         Style="{StaticResource PrimaryButton}"
                         Padding="16,8"
                         Margin="0,0,10,0" />
