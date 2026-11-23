@@ -201,6 +201,35 @@ public sealed class RecoveryServiceTests
     }
 
     [Fact]
+    public async Task GetRecoveryOverviewAsync_WhenNewWorkoutLoggedAfterStoredLoad_AddsIncrementalFatigue()
+    {
+        var olderTimestamp = new DateTimeOffset(2026, 11, 22, 8, 0, 0, TimeSpan.Zero);
+        _muscleLoadRepository
+            .Setup(m => m.GetUserMuscleLoadsAsync(AthleteId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MuscleLoad>
+            {
+                new() { UserId = AthleteId, MuscleGroupId = ChestGroupId, LoadValue = 100m, UpdatedAt = olderTimestamp },
+                new() { UserId = AthleteId, MuscleGroupId = BackGroupId, LoadValue = 0m, UpdatedAt = olderTimestamp },
+                new() { UserId = AthleteId, MuscleGroupId = LegsGroupId, LoadValue = 0m, UpdatedAt = olderTimestamp },
+            });
+
+        _muscleLoadRepository
+            .Setup(m => m.GetAllExerciseMuscleGroupsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ExerciseMuscleGroup>
+            {
+                new() { ExerciseId = 2, MuscleGroupId = ChestGroupId, LoadFactor = 1.0m },
+            });
+
+        var result = await _service.GetRecoveryOverviewAsync(AthleteId, 7);
+
+        Assert.True(result.IsSuccess);
+        var chest = result.Value!.MuscleRecoveryItems.Single(i => i.MuscleGroupId == ChestGroupId);
+        Assert.Equal(200m, chest.CurrentLoadValue);
+        Assert.Equal(50, chest.FatiguePercent);
+        Assert.Equal(50, chest.ReadinessPercent);
+    }
+
+    [Fact]
     public async Task ApplyRecoveryDeloadAsync_ReducesMuscleLoadSavesToRepositoryAndIncreasesReadiness()
     {
         var result = await _service.ApplyRecoveryDeloadAsync(AthleteId, 50);

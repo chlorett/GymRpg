@@ -63,6 +63,9 @@ public partial class MainWindow : Window
     private void OnRecoveryClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<RecoveryWindow>().Show();
 
+    private void OnStrengthStandardsClick(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<StrengthStandardsWindow>().Show();
+
     private void OnCreateTemplateClick(object sender, RoutedEventArgs e) =>
         _services.GetRequiredService<CreateTemplateWindow>().Show();
 

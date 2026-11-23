@@ -171,12 +171,15 @@ public sealed class RecoveryService : IRecoveryService
         var exerciseLinks = await _muscleLoadRepository.GetAllExerciseMuscleGroupsAsync(ct);
         var storedLoads = await _muscleLoadRepository.GetUserMuscleLoadsAsync(userId, ct);
 
-        if (storedLoads.Count == 0 && fairRecords.Count > 0)
-        {
-            storedLoads = ComputeMuscleLoads(userId, muscleGroups, exerciseLinks, fairRecords, now);
-        }
+        var effectiveLoads = ResolveEffectiveMuscleLoads(
+            userId,
+            muscleGroups,
+            exerciseLinks,
+            storedLoads,
+            fairRecords,
+            now);
 
-        var recoveryItems = BuildRecoveryItems(muscleGroups, storedLoads);
+        var recoveryItems = BuildRecoveryItems(muscleGroups, effectiveLoads);
         int readinessScore = CalculateOverallReadiness(recoveryItems);
         string summaryText = BuildReadinessSummaryText(readinessScore);
 
@@ -243,15 +246,18 @@ public sealed class RecoveryService : IRecoveryService
         var muscleGroups = await _muscleLoadRepository.GetAllMuscleGroupsAsync(ct);
         var exerciseLinks = await _muscleLoadRepository.GetAllExerciseMuscleGroupsAsync(ct);
         var storedLoads = await _muscleLoadRepository.GetUserMuscleLoadsAsync(userId, ct);
+        var records = await _recordRepository.GetAllByUserIdAsync(userId, ct);
+        var fairRecords = records.Where(r => !r.IsSuspicious).ToList();
 
-        if (storedLoads.Count == 0)
-        {
-            var records = await _recordRepository.GetAllByUserIdAsync(userId, ct);
-            var fairRecords = records.Where(r => !r.IsSuspicious).ToList();
-            storedLoads = ComputeMuscleLoads(userId, muscleGroups, exerciseLinks, fairRecords, now);
-        }
+        var effectiveLoads = ResolveEffectiveMuscleLoads(
+            userId,
+            muscleGroups,
+            exerciseLinks,
+            storedLoads,
+            fairRecords,
+            now);
 
-        var loadByGroupId = storedLoads
+        var loadByGroupId = effectiveLoads
             .GroupBy(l => l.MuscleGroupId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First().LoadValue);
 
@@ -296,6 +302,56 @@ public sealed class RecoveryService : IRecoveryService
             PreviousTotalLoad: previousTotalLoad,
             NewTotalLoad: newTotalLoad,
             NewReadinessScorePercent: newReadiness));
+    }
+
+    private static IReadOnlyList<MuscleLoad> ResolveEffectiveMuscleLoads(
+        int userId,
+        IReadOnlyList<MuscleGroup> muscleGroups,
+        IReadOnlyList<ExerciseMuscleGroup> exerciseLinks,
+        IReadOnlyList<MuscleLoad> storedLoads,
+        IReadOnlyList<WorkoutRecord> fairRecords,
+        DateTimeOffset now)
+    {
+        if (storedLoads.Count == 0)
+        {
+            return fairRecords.Count > 0
+                ? ComputeMuscleLoads(userId, muscleGroups, exerciseLinks, fairRecords, now)
+                : storedLoads;
+        }
+
+        var latestStoredUpdate = storedLoads.Max(l => l.UpdatedAt);
+        var newerRecords = fairRecords
+            .Where(r => r.CreatedAt > latestStoredUpdate)
+            .ToList();
+
+        if (newerRecords.Count == 0)
+        {
+            return storedLoads;
+        }
+
+        var incrementalLoads = ComputeMuscleLoads(userId, muscleGroups, exerciseLinks, newerRecords, now);
+        var baseByGroup = storedLoads
+            .GroupBy(l => l.MuscleGroupId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First());
+
+        var incrementalByGroup = incrementalLoads.ToDictionary(l => l.MuscleGroupId, l => l.LoadValue);
+
+        return muscleGroups
+            .OrderBy(g => g.Id)
+            .Select(g =>
+            {
+                baseByGroup.TryGetValue(g.Id, out var existing);
+                decimal baseValue = Math.Max(0m, existing?.LoadValue ?? 0m);
+                decimal addedValue = Math.Max(0m, incrementalByGroup.GetValueOrDefault(g.Id, 0m));
+                return new MuscleLoad
+                {
+                    UserId = userId,
+                    MuscleGroupId = g.Id,
+                    LoadValue = Math.Round(baseValue + addedValue, 2),
+                    UpdatedAt = addedValue > 0m ? now : (existing?.UpdatedAt ?? now),
+                };
+            })
+            .ToList();
     }
 
     private static List<MuscleRecoveryStatusItemDto> BuildRecoveryItems(
