@@ -1,0 +1,220 @@
+<Window x:Class="MyApp.Wpf.Views.StrengthStandardsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="clr-namespace:MyApp.Wpf.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=viewModels:StrengthStandardsViewModel}"
+        Style="{StaticResource AppWindow}"
+        Title="Силові стандарти та м'язова симетрія — PulseForge"
+        Height="740" Width="1100"
+        MinHeight="620" MinWidth="940"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Силові стандарти відносно маси тіла та баланс симетрії (Push / Pull / Legs)"
+                       Style="{StaticResource FormTitle}"
+                       Margin="0" />
+            <TextBlock Text="{Binding SymmetryAdviceText}"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Картки статистики (4 блоки) -->
+        <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,16">
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="СИЛОВИЙ РОЗРЯД АТЛЕТА"
+                               FontSize="11"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding OverallStrengthRank}"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource AccentBrush}"
+                               Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding AthleteBodyWeightText, StringFormat=Власна вага: {0}}"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,2,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Margin="4,0,4,0">
+                <StackPanel>
+                    <TextBlock Text="КРАЩА ВІДНОСНА СИЛА (1RM / BW)"
+                               FontSize="11"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding BestRelativeRatioText}"
+                               FontSize="20"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,6,0,0" />
+                    <TextBlock Text="Еліта: від 1.75x власної ваги"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Margin="4,0,4,0">
+                <StackPanel>
+                    <TextBlock Text="ІНДЕКС СИМЕТРІЇ М'ЯЗІВ"
+                               FontSize="11"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding SymmetryScoreText}"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource SuccessBrush}"
+                               Margin="0,4,0,0" />
+                    <ProgressBar Value="{Binding SymmetryScorePercent, Mode=OneWay}"
+                                 Minimum="0"
+                                 Maximum="100"
+                                 Height="8"
+                                 Margin="0,6,0,0"
+                                 Foreground="{StaticResource SuccessBrush}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Margin="8,0,0,0">
+                <StackPanel>
+                    <TextBlock Text="БАЛАНС АНТАГОНІСТІВ"
+                               FontSize="11"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding BalanceDistributionText}"
+                               FontSize="14"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource AccentBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,8,0,0" />
+                    <TextBlock Text="Еталон: ~34% / 33% / 33%"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- Панель фільтрації та калькулятора робочої ваги для наступного розряду -->
+        <Grid Grid.Row="2" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="210" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="170" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Фільтр за розрядом" Style="{StaticResource FieldLabel}" />
+                <ComboBox ItemsSource="{Binding RankFilterOptions}"
+                          SelectedItem="{Binding SelectedRankFilter}"
+                          Style="{StaticResource FieldComboBox}" />
+            </StackPanel>
+
+            <Button Grid.Column="2"
+                    Content="Оновити"
+                    Command="{Binding LoadOverviewCommand}"
+                    Style="{StaticResource SecondaryButton}"
+                    VerticalAlignment="Bottom"
+                    Padding="16,8" />
+
+            <StackPanel Grid.Column="4">
+                <TextBlock Text="Цільові повтори в підході" Style="{StaticResource FieldLabel}" />
+                <ComboBox ItemsSource="{Binding TargetRepsOptions}"
+                          SelectedItem="{Binding TargetReps, Mode=TwoWay}"
+                          Style="{StaticResource FieldComboBox}" />
+            </StackPanel>
+
+            <Button Grid.Column="6"
+                    Content="Розрахувати робочу вагу для наступного розряду"
+                    Command="{Binding CalculateTargetCommand}"
+                    Style="{StaticResource PrimaryButton}"
+                    VerticalAlignment="Bottom"
+                    Padding="18,8" />
+        </Grid>
+
+        <!-- Таблиця силових стандартів по вправах -->
+        <GroupBox Grid.Row="3"
+                  Header="Силові нормативи по вправах відносно маси тіла (оберіть рядок для розрахунку робочої ваги)"
+                  Padding="8"
+                  Margin="0,0,0,12">
+            <DataGrid ItemsSource="{Binding ExerciseStandards}"
+                      SelectedItem="{Binding SelectedStandard, Mode=TwoWay}"
+                      Style="{StaticResource AppDataGrid}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Вправа"
+                                        Binding="{Binding ExerciseName}"
+                                        Width="1.6*" />
+                    <DataGridTextColumn Header="Кращий 1RM (кг)"
+                                        Binding="{Binding BestOneRepMaxKg, StringFormat={}{0:0.#} кг}"
+                                        Width="125" />
+                    <DataGridTextColumn Header="Власна вага"
+                                        Binding="{Binding BodyWeightKg, StringFormat={}{0:0.#} кг}"
+                                        Width="110" />
+                    <DataGridTextColumn Header="Відносна сила (xBW)"
+                                        Binding="{Binding RelativeStrengthRatio, StringFormat={}{0:0.00}x}"
+                                        Width="140" />
+                    <DataGridTextColumn Header="Поточний розряд"
+                                        Binding="{Binding StrengthRankTitle}"
+                                        Width="130" />
+                    <DataGridTextColumn Header="Наступний розряд"
+                                        Binding="{Binding NextRankTitle}"
+                                        Width="135" />
+                    <DataGridTextColumn Header="Норматив 1RM"
+                                        Binding="{Binding TargetNextRank1RmKg, StringFormat={}{0:0.#} кг}"
+                                        Width="120" />
+                    <DataGridTextColumn Header="Залишилось (+кг)"
+                                        Binding="{Binding KgToNextRank, StringFormat=+{0:0.#} кг}"
+                                        Width="130" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <!-- Нижній рядок статусу та кнопка закриття -->
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Style="{StaticResource FieldError}"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource SuccessBrush}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Button Grid.Column="1"
+                    Content="Закрити"
+                    Click="OnCloseClick"
+                    Style="{StaticResource SecondaryButton}"
+                    Padding="24,8" />
+        </Grid>
+    </Grid>
+</Window>

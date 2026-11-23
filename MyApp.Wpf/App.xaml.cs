@@ -74,6 +74,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<GymModerationViewModel>();
         services.AddTransient<GymStandingsWindow>();
         services.AddTransient<GymStandingsViewModel>();
+        services.AddTransient<DivisionQualificationWindow>();
+        services.AddTransient<DivisionQualificationViewModel>();
 
         // --- Назар ---
         services.AddTransient<TrackWorkoutWindow>();
@@ -90,6 +92,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<PersonalRecordsViewModel>();
         services.AddTransient<RecoveryWindow>();
         services.AddTransient<RecoveryViewModel>();
+        services.AddTransient<StrengthStandardsWindow>();
+        services.AddTransient<StrengthStandardsViewModel>();
 
         // --- Софія ---
         services.AddTransient<CreateTemplateWindow>();

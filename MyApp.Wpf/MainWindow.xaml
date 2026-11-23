@@ -114,6 +114,8 @@
                                     Click="OnPersonalRecordsClick" />
                             <Button Content="Активність та відновлення" Style="{StaticResource MenuItemButton}"
                                     Click="OnRecoveryClick" />
+                            <Button Content="Силові стандарти та симетрія" Style="{StaticResource MenuItemButton}"
+                                    Click="OnStrengthStandardsClick" />
                         </StackPanel>
                     </Border>
 
